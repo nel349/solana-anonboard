@@ -2,7 +2,7 @@ import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
-import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/scripts/launch-midnight";
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
 const root = import.meta.dirname!;
 
@@ -65,7 +65,12 @@ export default {
     ...launchMidnight(
       "@anonboard/contracts-midnight",
       { cwd: path.join(root, "packages/contracts-midnight") },
-      { dependsOn: ["midnight-contract-compile"] },
+      {
+        dependsOn: ["midnight-contract-compile"],
+        // Required by @effectstream/midnight-contracts/deploy. Must be 16
+        // chars. Dev-only value; matches the node:start script.
+        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+      },
     ),
 
     {

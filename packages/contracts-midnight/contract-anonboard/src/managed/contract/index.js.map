@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../../",
+  "sources": ["src/anonboard.compact", "compiler/standard-library.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EA4BA;;;;;;;;;;;;;MAIA,AAAA,aAGC;;;;;cAHqB,QAAiB;;;;;;;;;;;;;;;;;;yCAAjB,QAAiB;;;;;;;;;+CAAjB,QAAiB;;;OAGtC;MAKD,AAAA,IAUC;;;;;cAVY,eAAwB;;;;;;;;;;;;;;;;;;yCAAxB,eAAwB;;;;;;;iEAAxB,eAAwB;;;OAUpC;;;;;;;;;;GApBA;EAFD;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IArBA;;;;;;;;;yEAA+B;IAI/B;;;;;;;;;;yEAA8C;IAI9C;;;;;;;;;;yEAA8C;IAC9C;;;;;;;;;yEAAmC;IAInC;;;;;;;;;;yEAAqC;UASnC,KAAK;;IAAL;;;;;;;2HAAA,KAAK;;yEAAA;;;;;;;GACN;EC9BD,AAAA,kBAAA;oEAAA;;;EDsBA,AAAA,qBAAwC;;0DAAxC,kBAAwC;;;;;;;;;;;;;;GAAA;EAExC,AAAA,aAEC,CAFkB,IAAa;;mCACkD,IAAE;GACnF;EAMD,AAAA,gBAGC,4BAHqB,QAAiB;;;kEACM;;;;;;;;;;;uIAAK;;IAChD;;;;;;;;;;2HAAuB,QAAM;;;;;;wEAAvB;;GACP;EAKD,AAAA,OAUC,4BAVY,eAAwB;UAC7B,IAAyB;QACxB,KAAM;wDAAmB,IAAE;qDAA3B;;;;;;;;;;;4KAAA,KAAM;;;;0HAAA;;UAEP,WAAiF;gDAAJ,IAAE;qDAC7E;;;;;;;;;;;4KAAqB,WAAS;;;;0HAA1B;;IACZ;;;;;;;;;;2HAAqB,WAAS;;;;;;wEAA1B;IAEJ;;;;;;;;;;2HAAuB,eAAa;;;;;;wEAA9B;UACN,KAAW;IAAX;;;;;;;;;;6FAAA,KAAW;;;;wEAAA;;GACZ;;;;;;;;;;;;;;;;;;;;IA3CD;qCAAA;;;;;;;;;;;0GAA+B;KAAA;IAI/B;;;;;uCAAA;;;;;;;;;;;;;;;;4GAA8C;;;;;;uCAA9C;;;;;;;;;;;;4GAA8C;;;;;;;;;;;;;;uCAA9C;;;;;;;;;;;;;;;4GAA8C;;;;;;;;;;;;;;uCAA9C;;;;;;;;;;;;;;;;;4GAA8C;;;;;;;;;KAAA;IAI9C;;;;;uCAAA;;;;;;;;;;;;;;;;4GAA8C;;;;;;uCAA9C;;;;;;;;;;;;4GAA8C;;;;;;;;;;;;;;uCAA9C;;;;;;;;;;;;;;;4GAA8C;;;;;;;;;;;;;;uCAA9C;;;;;;;;;;;;;;;;;4GAA8C;;;;;;;;;KAAA;IAC9C;qCAAA;;;;;;;;;;;0GAAmC;KAAA;;;;;;;;;;;;"
+}
