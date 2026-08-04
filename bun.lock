@@ -36,6 +36,10 @@
     },
     "packages/contracts-midnight/contract-anonboard": {
       "name": "@anonboard/midnight-contract",
+      "dependencies": {
+        "@midnight-ntwrk/compact-js": "2.5.1",
+        "@midnight-ntwrk/compact-runtime": "0.16.0",
+      },
     },
     "packages/contracts-solana": {
       "name": "@solana-starter/contracts-solana",
