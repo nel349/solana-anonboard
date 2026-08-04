@@ -1,0 +1,10 @@
+node_modules/
+src/managed/
+build/
+*.log
+logs/
+batcher-data/
+midnight-level-db/
+contract-anonboard.*.json
+contract.json
+.DS_Store

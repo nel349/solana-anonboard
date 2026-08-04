@@ -1,0 +1,100 @@
+import { Stm } from "@effectstream/sm";
+import type { BaseStfInput } from "@effectstream/sm";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
+import bs58 from "bs58";
+import { getBadge, insertBadge, insertPost } from "@solana-starter/database";
+import { grammar } from "./grammar.ts";
+import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
+
+const POST_LOG_PREFIX = "EFFECTSTREAM_COUNTER";
+
+const stm = new Stm<typeof grammar, {}>(grammar);
+
+// Midnight stores a badge as Bytes<32> and the map parser hands it back as
+// hex. Solana logs the signer as base58. Normalise to base58 so the arbiter
+// compares like with like. Getting this wrong looks identical to "nobody has
+// a badge", which is a very quiet way to fail.
+function hexToBase58(hex: string): string | null {
+  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
+  if (clean.length !== 64 || !/^[0-9a-fA-F]+$/.test(clean)) return null;
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bs58.encode(bytes);
+}
+
+// ── Private leg: mirror Midnight's badge set into Postgres ──
+//
+// A row in `badges` means: someone on the roster proved membership and bound
+// this Solana key. Which roster member, nobody knows. The nullifier map that
+// enforces one-badge-per-person is NOT exported by the contract, so it never
+// reaches this process at all.
+stm.addStateTransition("midnight-badges", function* (data) {
+  const { parsedInput, blockHeight } = data;
+  const payload = (parsedInput as any).payload as
+    | { badges?: Record<string, boolean> }
+    | undefined;
+
+  const badges = payload?.badges ?? {};
+  for (const hexKey of Object.keys(badges)) {
+    if (!badges[hexKey]) continue;
+    const pubkey = hexToBase58(hexKey);
+    if (!pubkey) continue;
+    yield* World.resolve(insertBadge, { pubkey, block_height: blockHeight });
+  }
+});
+
+// ── Public leg plus the arbiter ──
+//
+// This is the whole project in one function. A post observed on Solana is
+// only counted if its signer holds a badge issued on Midnight. No badge, no
+// post. The link between the chains is a proof result, not a value the user
+// handed to both sides.
+stm.addStateTransition("solana-post", function* (data) {
+  const { parsedInput, blockHeight } = data;
+  const { slot, programId, logMessages } = parsedInput as any;
+
+  if (programId !== COUNTER_PROGRAM_ID) return;
+
+  for (const raw of logMessages as string[]) {
+    const parsed = parsePostLog(raw);
+    if (!parsed) continue;
+
+    const { author, body } = parsed;
+
+    const badge = yield* World.resolve(getBadge, { pubkey: author });
+    const accepted = badge.length > 0;
+
+    yield* World.resolve(insertPost, {
+      author,
+      body,
+      slot: String(slot),
+      block_height: blockHeight,
+      accepted,
+      reason: accepted ? "badge verified on midnight" : "no midnight badge",
+    });
+  }
+});
+
+// Reuses the counter program's log format: PREFIX|<authority>|<value>|<slot>.
+// `value` stands in for post content in this PoC; a real board program would
+// carry the message bytes.
+function parsePostLog(raw: string): { author: string; body: string } | null {
+  const line = raw.startsWith("Program log: ")
+    ? raw.slice("Program log: ".length)
+    : raw;
+  if (!line.startsWith(POST_LOG_PREFIX + "|")) return null;
+  const parts = line.split("|");
+  if (parts.length !== 4) return null;
+  return { author: parts[1], body: `post #${parts[2]}` };
+}
+
+export const gameStateTransitions: StartConfigGameStateTransitions =
+  function* (
+    _blockHeight: number,
+    input: BaseStfInput,
+  ): SyncStateUpdateStream<void> {
+    yield* stm.processInput(input);
+  };

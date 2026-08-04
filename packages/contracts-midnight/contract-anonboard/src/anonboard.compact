@@ -1,0 +1,51 @@
+pragma language_version >= 0.17;
+
+export {add_to_roster, join}
+
+import CompactStandardLibrary;
+
+// Who runs the board. Set once, at deploy.
+export ledger owner: Bytes<32>;
+
+// Who is ALLOWED to join. Public on purpose: "norm is a contributor" is not
+// the secret. What he posts is.
+export ledger roster: Map<Bytes<32>, Boolean>;
+
+// Anonymous member badges: fresh Solana public keys, each bound to exactly one
+// roster member, with NO record of which one. This is the whole trick.
+export ledger badges: Map<Bytes<32>, Boolean>;
+export ledger badge_count: Counter;
+
+// One badge per person. Not exported, so the sync node can never read it and
+// nobody can count or correlate joins.
+ledger used: Map<Bytes<32>, Boolean>;
+
+witness private$secret_key(): Bytes<32>;
+
+circuit public_key(sk: Bytes<32>): Bytes<32> {
+  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "anonboard:pk:"), sk]));
+}
+
+constructor() {
+  owner = public_key(private$secret_key());
+}
+
+circuit add_to_roster(member: Bytes<32>): [] {
+  assert(public_key(private$secret_key()) == owner, "only owner");
+  roster.insert(disclose(member), true);
+}
+
+// The only circuit that matters. Proves "I am on the roster" and binds a
+// throwaway Solana key to that fact, disclosing the key and nothing else.
+// After this runs, the badge is a verified member with no identity attached.
+circuit join(solana_pubkey: Bytes<32>): [] {
+  const sk = private$secret_key();
+  assert(roster.member(public_key(sk)), "not on the roster");
+
+  const nullifier = persistentHash<Vector<2, Bytes<32>>>([pad(32, "anonboard:nul:"), sk]);
+  assert(!used.member(disclose(nullifier)), "already joined");
+  used.insert(disclose(nullifier), true);
+
+  badges.insert(disclose(solana_pubkey), true);
+  badge_count.increment(1);
+}
