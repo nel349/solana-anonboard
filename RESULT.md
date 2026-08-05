@@ -40,3 +40,30 @@ re-evaluating pending posts when a badge lands.
     SKIP_SOLANA_BUILD=1 NODE_ENV=development bunx orchestrator start
     MIDNIGHT_STORAGE_PASSWORD="YourPasswordMy1!" bun run scripts/demo.ts
     curl -s localhost:9999/api/posts | jq
+
+## Update — all gaps closed and verified (2026-08-04)
+
+Single fresh-chain run, one 0-SOL user, end to end:
+
+    1. blind-join: poster GQKsPui4… gets a badge, holds 0 SOL      [operator paid Midnight]
+    2. gasless post: batcher accepted (tx 3or37oFfk5hv…)
+       poster SOL before 0 → after 0                               [sponsor paid Solana]
+    3. FINAL: accepted=true, reason='badge verified (backfilled)'
+       body='gasless: i hold zero SOL and still posted'
+       poster SOL still 0
+
+- Gap A: real Solana post program, message gated by the arbiter. Verified.
+- Gap B: gasless — author balance unchanged, batcher/sponsor paid. Verified.
+- Gap C: operator-blind join — party B paid+submitted, never saw the secret;
+  badge landed. Verified.
+- Gap D: ordering — the post arrived before the badge, was held, then backfilled
+  to accepted when the badge synced. Verified (reason string proves the path).
+
+## Finding #4 (infra, reportable)
+
+@effectstream/solana-node's run() cannot pass --limit-ledger-size, so on a
+long-running localnet the validator prunes blocks faster than a slow
+SOLANA_RPC_PARALLEL sync consumes them; the sync then wedges on a pruned slot
+("Block N cleaned up, does not exist on node"). A fresh boot resets validator
+and sync to slot 0 together and they keep pace. Fixes: expose extraArgs /
+ledger-size in run(), or start the Solana sync near the tip, or raise retention.
