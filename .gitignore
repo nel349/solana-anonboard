@@ -8,3 +8,4 @@ midnight-level-db/
 contract-anonboard.*.json
 contract.json
 .DS_Store
+badge.json

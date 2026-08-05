@@ -11,6 +11,7 @@
 // Run with the stack up: bun run scripts/demo.ts
 
 import path from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   buildWalletAndWaitForFunds,
   configureMidnightNodeProviders,
@@ -18,6 +19,8 @@ import {
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
+import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   Connection,
   Keypair,
@@ -31,7 +34,7 @@ import {
   createAnonboardPrivateState,
   witnesses,
 } from "../packages/contracts-midnight/contract-anonboard/src/_index.ts";
-import { OWNER_SECRET_KEY } from "../packages/contracts-midnight/deploy.ts";
+import { OWNER_SECRET_KEY } from "../packages/contracts-midnight/owner-key.ts";
 
 const RPC = "http://localhost:8899";
 
@@ -45,6 +48,8 @@ async function main() {
     networkId: midnightNetworkConfig.id,
   });
   if (!info.contractAddress) throw new Error("contract not deployed");
+  // Must precede ANY wallet or contract operation.
+  setNetworkId(midnightNetworkConfig.id);
   log("midnight", `contract ${info.contractAddress}`);
 
   const urls = {
@@ -79,13 +84,21 @@ async function main() {
     w.unshieldedKeystore,
   );
 
-  const contract = new Anonboard.Contract(witnesses);
-  const joined = await findDeployedContract(providers, {
+  // findDeployedContract wants a CompiledContract, not `new X.Contract()`.
+  const compiled = CompiledContract.make(
+    "contract-anonboard",
+    Anonboard.Contract as never,
+  ).pipe(
+    CompiledContract.withWitnesses(witnesses as never),
+    CompiledContract.withCompiledFileAssets(zkConfigPath),
+  );
+
+  const joined = await findDeployedContract(providers as never, {
     contractAddress: info.contractAddress,
-    contract,
+    compiledContract: compiled as never,
     privateStateId: "anonboardPrivateState",
     initialPrivateState: createAnonboardPrivateState(OWNER_SECRET_KEY),
-  });
+  } as never);
 
   // Read `owner` off the public ledger so we can put it on the roster.
   const raw = await providers.publicDataProvider.queryContractState(
@@ -104,10 +117,22 @@ async function main() {
   }
 
   // The badge: a throwaway Solana keypair, bound to "some roster member".
-  const badge = Keypair.generate();
-  log("midnight", `join(${badge.publicKey.toBase58()}) …`);
-  await joined.callTx.join(badge.publicKey.toBytes());
-  log("midnight", "badge minted — ledger records the key, not the person");
+  // Persisted so a second run can post from it again — `join` burns a
+  // nullifier, so the same member can never mint a second badge.
+  const badgeFile = path.resolve(import.meta.dirname!, "..", "badge.json");
+  let badge: Keypair;
+  if (existsSync(badgeFile)) {
+    badge = Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(readFileSync(badgeFile, "utf8"))),
+    );
+    log("midnight", `reusing badge ${badge.publicKey.toBase58()} (already joined)`);
+  } else {
+    badge = Keypair.generate();
+    writeFileSync(badgeFile, JSON.stringify(Array.from(badge.secretKey)));
+    log("midnight", `join(${badge.publicKey.toBase58()}) …`);
+    await joined.callTx.join(badge.publicKey.toBytes());
+    log("midnight", "badge minted — ledger records the key, not the person");
+  }
 
   // ── Solana: two posts, one legitimate, one not ───────────────────────
   const conn = new Connection(RPC, "confirmed");
