@@ -53,20 +53,14 @@ only.
 
 ## 3. Architecture
 
-```
-  Midnight  (private, once, expensive)      Solana  (public, constant, cheap)
-  ────────────────────────────────────      ────────────────────────────────
-  join(solana_pubkey)                       post(), signed by the badge key
-    prove roster membership                 sponsored, instant
-    burn a nullifier
-    disclose ONLY the badge
-              │                                          │
-              └──────────────┬───────────────────────────┘
-                             ▼
-                    EffectStream state machine
-              badge in Midnight's ledger?  yes → count it
-                                            no → drop it
-```
+Midnight (private, once, expensive): `join(solana_pubkey)` proves roster
+membership, burns a nullifier, and discloses only the badge.
+
+Solana (public, constant, cheap): `post()`, signed by the badge key, sponsored
+and instant.
+
+EffectStream state machine (where they meet): is the badge in Midnight's ledger?
+Yes → count the post. No → drop it.
 
 Three files carry the whole idea:
 
@@ -96,12 +90,12 @@ outcome.
 
 The result that matters:
 
-```
-id=1  bh=78   accepted=false  CzHwDZ86…  no midnight badge
-id=2  bh=79   accepted=false  DomViusS1…  no midnight badge
-id=3  bh=150  accepted=true   CzHwDZ86…  badge verified on midnight
-id=4  bh=151  accepted=false  7aM2vTui…  no midnight badge
-```
+| id | block | accepted | author | reason |
+| --- | --- | --- | --- | --- |
+| 1 | 78 | false | CzHwDZ86… | no midnight badge |
+| 2 | 79 | false | DomViusS1… | no midnight badge |
+| 3 | 150 | **true** | CzHwDZ86… | badge verified on midnight |
+| 4 | 151 | false | 7aM2vTui… | no midnight badge |
 
 Same program, same moment. id=3 proved membership; id=4 never joined. ids 1 and 3
 are the same key, differing only in whether the badge had finished syncing, which
@@ -141,13 +135,9 @@ re-evaluate pending posts when a badge lands.
 while `@midnight-ntwrk/compact-runtime` depends on `onchain-runtime-v3` under its
 real name. Same package, same version, two names, so a standalone install writes
 two copies, giving two WASM instances and two distinct `StateValue` classes. The
-generated contract reader does:
-
-```js
-x instanceof __compactRuntime.StateValue ? x : x.state
-```
-
-so a `StateValue` built by the sync fetcher fails the check, silently takes the
+generated contract reader does `x instanceof __compactRuntime.StateValue ? x :
+x.state`, so a `StateValue` built by the sync fetcher fails the check, silently
+takes the
 wrong branch, and throws `expected instance of ChargedState`, which names nothing
 useful. Symlinking the alias to the real package fixes it and the sync node goes
 from 17 errors per run to zero. Shipped here as a `postinstall`. The Midnight
