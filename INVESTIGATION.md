@@ -145,7 +145,7 @@ literally two scopes sharing one hex string.
 ## Part 5 — The bugs that will cost you a day each
 
 These are standalone-install bugs. The template monorepo hides them inside
-`link.sh`; a standalone repo (which the bounty requires) does not. Fix them up
+`link.sh`; a standalone repo (which a real submission requires) does not. Fix them up
 front.
 
 ### Bug 1 — duplicate Midnight WASM runtime → `expected instance of ChargedState`
