@@ -55,19 +55,20 @@ says outright that its eligibility is not enforced in the circuit, so a wallet
 that never qualified can still be accepted. Here the private proof is what makes
 the public action count, and the rollup enforces it.
 
-On feasibility, I maintain midnight-wallet-cli, a CLI wallet and MCP server for
-Midnight, so I already work with the Compact toolchain, dust, the indexer and
-the dapp-connector API day to day. From reading the templates, the composition
-this needs is the framework's supported shape: evm-midnight-v2 runs an NTP main
-protocol with EVM and Midnight as parallel siblings, and solana-starter runs the
-same NTP main with Solana, so pairing Solana and Midnight under one clock is
-assembly rather than engine work. I have also traced one packaging problem I
-expect to hit and would report upstream: @effectstream/sync aliases
-onchain-runtime to onchain-runtime-v3 while compact-runtime depends on the real
-name, which in a standalone install resolves to two copies of the same WASM
-runtime and breaks instanceof checks inside a contract's generated ledger()
-reader. The Midnight templates avoid it via link.sh, but a standalone repo,
-which this task requires, gets no such help.
+On feasibility, the composition is the framework's supported shape rather than
+new engine work: evm-midnight-v2 hangs EVM and Midnight off an NTP main protocol
+as parallel siblings, and solana-starter hangs Solana off the same NTP main, so
+pairing Solana with Midnight under one clock is assembly. The privacy path is
+already demonstrated too: zswap-da proves in the browser and calls
+balanceUnsealedTransaction with payFees:false, so the wallet seals a
+locally-proven transaction without spending its own Dust and the batcher pays,
+which means the batcher never sees the private inputs. I have also traced one
+packaging problem I expect to hit and would report upstream: @effectstream/sync
+aliases onchain-runtime to onchain-runtime-v3 while compact-runtime depends on
+the real name, which in a standalone install resolves to two copies of the same
+WASM runtime and breaks the instanceof check inside a contract's generated
+ledger() reader. The Midnight templates avoid it inside link.sh, but a
+standalone repo, which this task requires, gets no such help.
 
 To be explicit about reuse: the Solana leg would come from solana-starter, the
 Midnight wiring from evm-midnight-v2, the in-browser proving path from zswap-da
@@ -103,11 +104,12 @@ exported from the contract, so the sync node cannot read it and joins cannot be
 counted or correlated. This is where the existing templates stop short: all
 three Midnight pairings correlate their chains in Postgres, and zk-cardano
 states outright that its eligibility is not enforced in the circuit. On
-feasibility, I maintain midnight-wallet-cli, a CLI wallet and MCP server for
-Midnight, so I work with the Compact toolchain, dust and the indexer regularly,
-and the composition this needs is the framework's supported shape, since
+feasibility, the composition this needs is the framework's supported shape, since
 evm-midnight-v2 and solana-starter both hang their chains off an NTP main
-protocol as parallel siblings. I reuse the Solana leg from solana-starter, the
+protocol as parallel siblings, and the privacy path is already demonstrated by
+zswap-da, which proves in the browser and calls balanceUnsealedTransaction with
+payFees:false so the batcher pays without seeing the private inputs. I reuse the
+Solana leg from solana-starter, the
 Midnight wiring from evm-midnight-v2, the browser proving path from zswap-da,
 and the identity idiom from example-bboard; the roster gate, the
 one-badge-per-person nullifier and the cross-chain arbiter are new. I could not
@@ -135,10 +137,11 @@ the contribution obvious without jargon.
 line explaining the whole two-chain split, and it is the opposite architectural
 choice to bboard, which stores the message on Midnight.
 
-**Feasibility is argued from credentials and from reading, not from a build.**
-Maintaining midnight-wallet-cli is verifiable and directly relevant. The NTP
-main plus parallel siblings observation comes from the template configs, which
-anyone can check.
+**Feasibility is argued from the framework, not from a build or a résumé.** The
+NTP-main-plus-parallel-siblings shape and the zswap-da payFees:false path are
+both readable in the repo, so the case stands on facts anyone can check rather
+than on prior projects. The team already knows the author, so credentials are
+left out.
 
 **The packaging problem is framed as traced, not encountered.** It is visible in
 the dependency graph without running anything, so the claim holds up. It signals
