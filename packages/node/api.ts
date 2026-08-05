@@ -1,5 +1,11 @@
 import { runPreparedQuery } from "@effectstream/db";
-import { getAllCounters, getCounterByAuthority, getRecentEvents } from "@solana-starter/database";
+import {
+  getAllBadges,
+  getAllCounters,
+  getAllPosts,
+  getCounterByAuthority,
+  getRecentEvents,
+} from "@solana-starter/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type { FastifyInstance } from "fastify";
@@ -24,6 +30,31 @@ export const apiRouter: StartConfigApiRouter = async function (
       reply.send({ counter: result[0] });
     },
   );
+
+  // The two routes this project exists for.
+  //
+  // /api/badges — anonymous member badges mirrored from Midnight's ledger.
+  // /api/posts  — Solana posts, each tagged with whether the arbiter accepted
+  //               it. `accepted:false` rows are the proof the check is real.
+  server.get("/api/badges", async (_request, reply) => {
+    const result = await runPreparedQuery(
+      getAllBadges.run(undefined, dbConn),
+      "/api/badges",
+    );
+    reply.send({ badges: result });
+  });
+
+  server.get("/api/posts", async (_request, reply) => {
+    const result = await runPreparedQuery(
+      getAllPosts.run(undefined, dbConn),
+      "/api/posts",
+    );
+    reply.send({
+      posts: result,
+      accepted: result.filter((p) => p.accepted).length,
+      rejected: result.filter((p) => !p.accepted).length,
+    });
+  });
 
   server.get("/api/counters", async (_request, reply) => {
     const result = await runPreparedQuery(
