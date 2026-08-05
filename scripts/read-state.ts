@@ -1,0 +1,21 @@
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { Anonboard } from "../packages/contracts-midnight/contract-anonboard/src/_index.ts";
+import bs58 from "bs58";
+
+setNetworkId(midnightNetworkConfig.id);
+const info = readMidnightContract("contract-anonboard", { networkId: midnightNetworkConfig.id });
+const pdp = indexerPublicDataProvider(midnightNetworkConfig.indexer, midnightNetworkConfig.indexerWS);
+const st = await pdp.queryContractState(info.contractAddress!);
+const l = Anonboard.ledger(st!.data);
+console.log("badge_count:", l.badge_count.toString());
+const badges: string[] = [];
+for (const [k] of l.badges) badges.push(bs58.encode(k as Uint8Array));
+console.log("badges on-chain:", badges.map(b=>b.slice(0,12)));
+console.log("looking for 81itZYcw:", badges.some(b=>b.startsWith("81itZYcw")));
+const roster: string[] = [];
+for (const [k] of l.roster) roster.push(Buffer.from(k as Uint8Array).toString("hex").slice(0,12));
+console.log("roster members (hex):", roster);
+process.exit(0);

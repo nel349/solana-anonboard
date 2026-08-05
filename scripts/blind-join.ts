@@ -47,9 +47,10 @@ import { OWNER_SECRET_KEY } from "../packages/contracts-midnight/owner-key.ts";
 const log = (s: string, m: string) => console.log(`\n[${s}] ${m}`);
 
 // A fresh roster member: a distinct secret, plus its public key computed with
-// the same hash the circuit uses (pad(32,"anonboard:pk:") ++ sk).
+// the same hash the circuit uses (pad(32,"anonboard:pk:") ++ sk). The byte is
+// parameterised so each run uses an unspent member (join burns a nullifier).
 const MEMBER_SECRET_KEY = new Uint8Array(32);
-MEMBER_SECRET_KEY[31] = 0x07;
+MEMBER_SECRET_KEY[31] = Number(process.env.MEMBER_BYTE ?? "7");
 function pad32(s: string): Uint8Array {
   const b = new Uint8Array(32);
   b.set(new TextEncoder().encode(s));
@@ -125,7 +126,14 @@ async function main() {
   }
 
   // ── PARTY A: has the member secret. Build + prove the join locally. ──
+  // Persist the badge keypair so a follow-up gasless post can reuse it. This
+  // keypair never receives an airdrop; it is a badge holder with zero SOL.
   const badge = Keypair.generate();
+  const posterFile = path.resolve(import.meta.dirname!, "..", "poster.json");
+  (await import("node:fs")).writeFileSync(
+    posterFile,
+    JSON.stringify(Array.from(badge.secretKey)),
+  );
   const aProviders = configureMidnightNodeProviders(
     w.wallet,
     w.zswapSecretKeys,

@@ -3,7 +3,12 @@ import type { BaseStfInput } from "@effectstream/sm";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import bs58 from "bs58";
-import { getBadge, insertBadge, insertPost } from "@solana-starter/database";
+import {
+  acceptPostsForAuthor,
+  getBadge,
+  insertBadge,
+  insertPost,
+} from "@solana-starter/database";
 import { grammar } from "./grammar.ts";
 import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
 
@@ -43,6 +48,10 @@ stm.addStateTransition("midnight-badges", function* (data) {
     const pubkey = hexToBase58(hexKey);
     if (!pubkey) continue;
     yield* World.resolve(insertBadge, { pubkey, block_height: blockHeight });
+    // Backfill: a post from this author that arrived before the badge synced
+    // was rejected only for lack of a badge. Now that the badge is here, accept
+    // it. This resolves the cross-chain ordering race (gap D).
+    yield* World.resolve(acceptPostsForAuthor, { author: pubkey });
   }
 });
 
