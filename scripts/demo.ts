@@ -28,7 +28,7 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import { createIncrementInstruction } from "@solana-starter/contracts-solana";
+import { createPostInstruction } from "@solana-starter/contracts-solana";
 import {
   Anonboard,
   createAnonboardPrivateState,
@@ -138,19 +138,21 @@ async function main() {
   const conn = new Connection(RPC, "confirmed");
   const stranger = Keypair.generate();
 
-  for (const [who, kp] of [
-    ["BADGE HOLDER", badge],
-    ["STRANGER", stranger],
+  for (const [who, kp, body] of [
+    ["BADGE HOLDER", badge, "gm from a verified member"],
+    ["STRANGER", stranger, "i never joined but here i am"],
   ] as const) {
+    // PoC note: the keypair still self-funds its fee here. Routing this through
+    // the batcher as fee-payer (so the author holds no SOL) is the next gap.
     const sig = await conn.requestAirdrop(kp.publicKey, LAMPORTS_PER_SOL);
     await conn.confirmTransaction(sig, "confirmed");
     const tx = new Transaction().add(
-      createIncrementInstruction(kp.publicKey, 1, kp.publicKey),
+      createPostInstruction(kp.publicKey, body),
     );
     const h = await sendAndConfirmTransaction(conn, tx, [kp], {
       commitment: "confirmed",
     });
-    log("solana", `${who} posted — ${kp.publicKey.toBase58()} (${h.slice(0, 12)}…)`);
+    log("solana", `${who} posted "${body}" — ${kp.publicKey.toBase58().slice(0, 8)}… (${h.slice(0, 12)}…)`);
   }
 
   console.log(`

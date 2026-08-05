@@ -11,6 +11,7 @@ import {
   COUNTER_PROGRAM_ID,
   DISCRIMINANT_INCREMENT,
   DISCRIMINANT_RESET,
+  DISCRIMINANT_POST,
   COUNTER_SEED,
 } from "./program-id.ts";
 
@@ -52,6 +53,22 @@ export function createIncrementInstruction(
   return new TransactionInstruction({
     programId: new PublicKey(COUNTER_PROGRAM_ID),
     keys: counterKeys(authority, counter, payer),
+    data,
+  });
+}
+
+// A post writes no account, so the only key it needs is the author as signer.
+// The transaction's fee-payer (the batcher) pays the fee; the author holds no
+// SOL. `body` is UTF-8 in the instruction data after the discriminant byte.
+export function createPostInstruction(
+  author: PublicKey,
+  body: string,
+): TransactionInstruction {
+  const bodyBytes = Buffer.from(body, "utf8");
+  const data = Buffer.concat([Buffer.from([DISCRIMINANT_POST]), bodyBytes]);
+  return new TransactionInstruction({
+    programId: new PublicKey(COUNTER_PROGRAM_ID),
+    keys: [{ pubkey: author, isSigner: true, isWritable: false }],
     data,
   });
 }

@@ -50,12 +50,14 @@ export {
   COUNTER_PROGRAM_ID,
   DISCRIMINANT_INCREMENT,
   DISCRIMINANT_RESET,
+  DISCRIMINANT_POST,
   COUNTER_SEED,
 } from "./program-id.ts";
 export {
   findCounterAddress,
   createIncrementInstruction,
   createResetInstruction,
+  createPostInstruction,
 } from "./instructions.ts";
 export {
   DEV_RPC_URL,

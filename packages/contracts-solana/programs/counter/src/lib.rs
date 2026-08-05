@@ -32,6 +32,8 @@ solana_program::declare_id!("8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6");
 /// Discriminant byte for each instruction.
 pub const DISCRIMINANT_INCREMENT: u8 = 0;
 pub const DISCRIMINANT_RESET: u8 = 1;
+/// Post a message. Writes no account; the emitted log line is the record.
+pub const DISCRIMINANT_POST: u8 = 2;
 
 /// Number of bytes the on-chain counter account stores: just a little-endian u64.
 pub const COUNTER_LEN: usize = 8;
@@ -92,6 +94,24 @@ pub fn process_instruction<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
+    // Post is handled first: it writes no account, so it needs only the author
+    // as a signer. The author signs (free); whoever pays the transaction fee
+    // (the batcher) need not be the author, so posting costs the user nothing.
+    // Wire format consumed by the sync node: ANONBOARD_POST|<author>|<slot>|<body>.
+    // Body is last so it may itself contain '|' without breaking the parse.
+    if instruction_data.first().copied() == Some(DISCRIMINANT_POST) {
+        let account_info_iter = &mut accounts.iter();
+        let author_info = next_account_info(account_info_iter)?;
+        if !author_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        let body = core::str::from_utf8(&instruction_data[1..])
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
+        let slot = Clock::get()?.slot;
+        msg!("ANONBOARD_POST|{}|{}|{}", author_info.key, slot, body);
+        return Ok(());
+    }
+
     let account_info_iter = &mut accounts.iter();
     let authority_info = next_account_info(account_info_iter)?;
     let counter_info = next_account_info(account_info_iter)?;

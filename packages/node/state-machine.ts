@@ -7,7 +7,7 @@ import { getBadge, insertBadge, insertPost } from "@solana-starter/database";
 import { grammar } from "./grammar.ts";
 import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
 
-const POST_LOG_PREFIX = "EFFECTSTREAM_COUNTER";
+const POST_LOG_PREFIX = "ANONBOARD_POST";
 
 const stm = new Stm<typeof grammar, {}>(grammar);
 
@@ -86,9 +86,13 @@ function parsePostLog(raw: string): { author: string; body: string } | null {
     ? raw.slice("Program log: ".length)
     : raw;
   if (!line.startsWith(POST_LOG_PREFIX + "|")) return null;
+  // ANONBOARD_POST|<author>|<slot>|<body>. Body is last and may contain '|',
+  // so split only the first three fields and keep the remainder as the body.
   const parts = line.split("|");
-  if (parts.length !== 4) return null;
-  return { author: parts[1], body: `post #${parts[2]}` };
+  if (parts.length < 4) return null;
+  const author = parts[1];
+  const body = parts.slice(3).join("|");
+  return { author, body };
 }
 
 export const gameStateTransitions: StartConfigGameStateTransitions =

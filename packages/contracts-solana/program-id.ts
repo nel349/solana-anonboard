@@ -9,6 +9,7 @@ export const COUNTER_PROGRAM_ID =
 /** Discriminant bytes — must match the Rust program. */
 export const DISCRIMINANT_INCREMENT = 0;
 export const DISCRIMINANT_RESET = 1;
+export const DISCRIMINANT_POST = 2;
 
 /** PDA seed used for the counter account. */
 export const COUNTER_SEED = Buffer.from("counter");
