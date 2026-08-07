@@ -105,9 +105,12 @@ Against `effectstream/effectstream` @ `v-next`.
 - **zk-cardano eligibility not in-circuit:** `zk-cardano/README.md` line 117,
   verbatim: "Because eligibility is not proven in-circuit, a wallet that never
   delegated can still cast a vote that the contract accepts."
-- **evm-midnight-v2 = NTP main + parallel siblings:** `config.dev.ts`:
-  `NTP_MAIN`, `EVM_RPC_PARALLEL`, `MIDNIGHT_PARALLEL`. solana-starter uses the
-  same `NTP_MAIN` + `SOLANA_RPC_PARALLEL` shape.
+- **multi-chain shape:** `evm-midnight-v2/config.dev.ts` declares a shared
+  ordering clock (`NTP_MAIN`, EffectStream's internal timeline protocol, not a
+  blockchain) with each chain synced against it as a parallel protocol
+  (`EVM_RPC_PARALLEL`, `MIDNIGHT_PARALLEL`). `solana-starter` uses the same clock
+  with `SOLANA_RPC_PARALLEL`. This dApp uses `SOLANA_RPC_PARALLEL` +
+  `MIDNIGHT_PARALLEL` (no EVM).
 - **zswap-da browser proving:** `browserContract.ts` lines 95–97 call
   `balanceUnsealedTransaction(..., { payFees: false })`; proving via
   `httpClientProofProvider` + `CompiledContract.withWitnesses`.
