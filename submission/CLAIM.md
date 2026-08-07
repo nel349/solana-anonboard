@@ -15,7 +15,7 @@ or as part of it. The task text implies validation comes first.
 > claim is fine; denying it would not be.
 
 All factual claims below were verified against the effectstream source on
-2026-08-04. See the [Verification note](#verification-note-checked-2026-08-04) at
+2026-08-04 and re-verified 2026-08-07. See the [Verification note](#verification-note-checked-2026-08-04) at
 the end.
 
 ---
@@ -98,7 +98,7 @@ being hidden.
 
 ---
 
-## Verification note (checked 2026-08-04)
+## Verification note (checked 2026-08-04, re-verified 2026-08-07)
 
 Against `effectstream/effectstream` @ `v-next`.
 
