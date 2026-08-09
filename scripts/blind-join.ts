@@ -36,7 +36,7 @@ import {
   CompactTypeBytes,
 } from "@midnight-ntwrk/compact-runtime";
 import { Transaction as LedgerTx } from "@midnight-ntwrk/ledger-v8";
-import { Keypair } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   Anonboard,
   createAnonboardPrivateState,
@@ -126,14 +126,24 @@ async function main() {
   }
 
   // ── PARTY A: has the member secret. Build + prove the join locally. ──
-  // Persist the badge keypair so a follow-up gasless post can reuse it. This
-  // keypair never receives an airdrop; it is a badge holder with zero SOL.
-  const badge = Keypair.generate();
-  const posterFile = path.resolve(import.meta.dirname!, "..", "poster.json");
-  (await import("node:fs")).writeFileSync(
-    posterFile,
-    JSON.stringify(Array.from(badge.secretKey)),
-  );
+  // Badge target: either an existing public key (BADGE_PUBKEY, e.g. the one the
+  // browser generated) or a fresh keypair we generate and persist. Join only
+  // needs the public key; the secret key is irrelevant to the join itself.
+  let badgePubkeyBytes: Uint8Array;
+  let badgeLabel: string;
+  if (process.env.BADGE_PUBKEY) {
+    const pk = new PublicKey(process.env.BADGE_PUBKEY);
+    badgePubkeyBytes = pk.toBytes();
+    badgeLabel = pk.toBase58();
+  } else {
+    const badge = Keypair.generate();
+    badgePubkeyBytes = badge.publicKey.toBytes();
+    badgeLabel = badge.publicKey.toBase58();
+    (await import("node:fs")).writeFileSync(
+      path.resolve(import.meta.dirname!, "..", "poster.json"),
+      JSON.stringify(Array.from(badge.secretKey)),
+    );
+  }
   const aProviders = configureMidnightNodeProviders(
     w.wallet,
     w.zswapSecretKeys,
@@ -153,12 +163,12 @@ async function main() {
     "anonboardMemberState",
     createAnonboardPrivateState(MEMBER_SECRET_KEY) as never,
   );
-  log("party-A", `building unproven join(${badge.publicKey.toBase58().slice(0, 8)}…)`);
+  log("party-A", `building unproven join(${badgeLabel.slice(0, 8)}…)`);
   const unproven = await createUnprovenCallTx(aProviders as never, {
     compiledContract: compiled as never,
     circuitId: "join" as never,
     contractAddress: info.contractAddress,
-    args: [badge.publicKey.toBytes()] as never,
+    args: [badgePubkeyBytes] as never,
     privateStateId: "anonboardMemberState",
   } as never);
   log("party-A", "proving locally (witness stays here)…");
@@ -210,7 +220,7 @@ Party A proved the join with the member secret and produced a
 ${unboundHex.length / 2}-byte unbound transaction. Party B paid and submitted it
 using only its own dust keys and never received the secret.
 
-Badge to look for: ${badge.publicKey.toBase58()}
+Badge to look for: ${badgeLabel}
 Give the sync node ~30s, then: curl -s localhost:9999/api/badges | jq
 ─────────────────────────────────────────────────────────────────
 `);

@@ -8,7 +8,7 @@ import {
 } from "@solana/web3.js";
 import bs58 from "bs58";
 import {
-  createIncrementInstruction,
+  createPostInstruction,
   DEV_BATCHER_FEE_PAYER,
   DEV_BATCHER_TARGET,
   DEV_BATCHER_URL,
@@ -19,341 +19,200 @@ import {
 // ── Stack endpoints (the running `bun run dev` dev stack) ───────────────────
 const RPC = DEV_RPC_URL;
 const BATCHER_URL = DEV_BATCHER_URL;
-const COUNTERS_URL = `${DEV_NODE_API_URL}/api/counters`;
-const EVENTS_URL = `${DEV_NODE_API_URL}/api/counter-events?limit=50`;
+const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
+const BADGES_URL = `${DEV_NODE_API_URL}/api/badges`;
 const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
 const ADDRESS_TYPE_SOLANA = 9; // AddressType.SOLANA
-const QUICK_AMOUNTS = [1, 5, 10, 100];
+const MAX_BODY = 280; // bounded by the Solana tx size (see DECISIONS.md D9)
 
-type Wallet = {
-  kind: "phantom" | "dev";
-  publicKey: PublicKey;
-  signTransaction: (tx: Transaction) => Promise<Transaction>;
-};
+// The badge is a fresh keypair generated in the browser and kept in
+// localStorage. It is the anonymous session identity: unlinkable to the member
+// on-chain (see DECISIONS.md D4). Not the user's real wallet, by design.
+const BADGE_STORAGE_KEY = "anonboard.badge.v1";
 
-type CounterRow = {
-  authority: string;
-  value: string;
-  slot: number | string;
+function loadOrCreateBadge(): Keypair {
+  const saved = localStorage.getItem(BADGE_STORAGE_KEY);
+  if (saved) {
+    try {
+      return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(saved)));
+    } catch {
+      /* fall through and regenerate */
+    }
+  }
+  const kp = Keypair.generate();
+  localStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(Array.from(kp.secretKey)));
+  return kp;
+}
+
+type Post = {
+  id: number;
+  author: string;
+  body: string;
+  accepted: boolean;
+  reason: string;
   block_height: number;
 };
 
-type EventRow = {
-  authority: string;
-  value: string;
-  slot: number | string;
-  kind: string; // "increment" | "reset"
-  delta: string;
-};
-
-type StatusKind = "info" | "success" | "error";
-
-declare global {
-  interface Window {
-    solana?: {
-      isPhantom?: boolean;
-      publicKey?: { toBase58(): string };
-      connect: () => Promise<{ publicKey: { toBase58(): string } }>;
-      disconnect?: () => Promise<void>;
-      signTransaction: (tx: Transaction) => Promise<Transaction>;
-    };
-  }
-}
-
-const explorerTxUrl = (sig: string) =>
-  `https://explorer.solana.com/tx/${sig}?cluster=custom&customUrl=${encodeURIComponent(RPC)}`;
-
-const shortAddr = (addr: string) =>
-  addr.length > 10 ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : addr;
-
-function timeAgo(ms: number): string {
-  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (s < 2) return "just now";
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
-}
-
-const eventKey = (e: EventRow) => `${e.authority}:${e.slot}:${e.delta}:${e.kind}`;
-
 export function App() {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [amount, setAmount] = useState("1");
-  const [status, setStatus] = useState<string>("");
-  const [statusKind, setStatusKind] = useState<StatusKind>("info");
-  const [lastSig, setLastSig] = useState<string>("");
+  const badgeRef = useRef<Keypair>(loadOrCreateBadge());
+  const badge = badgeRef.current;
+  const badgePk = badge.publicKey.toBase58();
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isMember, setIsMember] = useState<boolean | null>(null);
+  const [draft, setDraft] = useState("");
+  const [status, setStatus] = useState<{ msg: string; kind: "info" | "ok" | "err" }>({
+    msg: "",
+    kind: "info",
+  });
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [rows, setRows] = useState<CounterRow[]>([]);
-  const [events, setEvents] = useState<EventRow[]>([]);
-  const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
-  // First-sight timestamp per event key (for relative "time-ago"). Events carry
-  // no wall-clock, so we stamp them client-side when they first appear.
-  const seenRef = useRef<Map<string, number>>(new Map());
 
-  const setStatusMsg = (msg: string, kind: StatusKind = "info", sig = "") => {
-    setStatus(msg);
-    setStatusKind(kind);
-    setLastSig(sig);
-  };
-
-  // Poll the node's read API for the leaderboard + the increment-event log.
+  // Poll the node for the feed and this badge's membership. The board is a
+  // public read: no wallet needed to look.
   useEffect(() => {
+    let alive = true;
     const tick = async () => {
       try {
-        const [cRes, eRes] = await Promise.all([fetch(COUNTERS_URL), fetch(EVENTS_URL)]);
-        if (cRes.ok) {
-          const json = await cRes.json();
-          // Leaderboard: highest value first (BigInt-aware in case the API
-          // order ever drifts).
-          setRows(
-            (json.counters ?? []).sort((a: CounterRow, b: CounterRow) => {
-              const bv = BigInt(b.value);
-              const av = BigInt(a.value);
-              return bv > av ? 1 : bv < av ? -1 : 0;
-            }),
-          );
-        }
-        if (eRes.ok) {
-          const evs: EventRow[] = (await eRes.json()).events ?? [];
-          const added = new Set<string>();
-          const now = Date.now();
-          for (const e of evs) {
-            const k = eventKey(e);
-            if (!seenRef.current.has(k)) {
-              seenRef.current.set(k, now);
-              added.add(k);
-            }
-          }
-          setEvents(evs);
-          setNewKeys(added);
-        }
-      } catch { /* node not up yet */ }
+        const [pRes, bRes] = await Promise.all([fetch(POSTS_URL), fetch(BADGES_URL)]);
+        const pJson = await pRes.json();
+        const bJson = await bRes.json();
+        if (!alive) return;
+        setPosts(pJson.posts ?? []);
+        setIsMember((bJson.badges ?? []).some((b: { pubkey: string }) => b.pubkey === badgePk));
+      } catch {
+        /* stack not up yet; keep polling */
+      }
     };
     tick();
-    const id = setInterval(tick, 2000);
-    return () => clearInterval(id);
-  }, []);
+    const h = setInterval(tick, 2500);
+    return () => {
+      alive = false;
+      clearInterval(h);
+    };
+  }, [badgePk]);
 
-  async function connect() {
-    if (window.solana?.isPhantom) {
-      const { publicKey } = await window.solana.connect();
-      setWallet({
-        kind: "phantom",
-        publicKey: new PublicKey(publicKey.toBase58()),
-        signTransaction: (tx) => window.solana!.signTransaction(tx),
-      });
-      setStatusMsg("Connected Phantom.");
-    } else {
-      // No extension — generate an in-browser dev keypair (0 SOL; gasless).
-      const kp = Keypair.generate();
-      setWallet({
-        kind: "dev",
-        publicKey: kp.publicKey,
-        signTransaction: async (tx) => {
-          tx.partialSign(kp);
-          return tx;
-        },
-      });
-      setStatusMsg("No Phantom found — using an in-browser dev keypair.");
-    }
-  }
-
-  function disconnect() {
-    window.solana?.disconnect?.().catch(() => {});
-    setWallet(null);
-    setStatusMsg("Disconnected.");
-  }
-
-  async function copyAddress() {
-    if (!wallet) return;
-    try {
-      await navigator.clipboard.writeText(wallet.publicKey.toBase58());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch { /* clipboard unavailable */ }
-  }
-
-  async function increment() {
-    if (!wallet) return;
-    const value = Number(amount);
-    if (!Number.isSafeInteger(value) || value <= 0) {
-      setStatusMsg("Amount must be a positive integer.", "error");
-      return;
-    }
+  async function post() {
+    const body = draft.trim();
+    if (!body) return;
     setBusy(true);
-    setStatusMsg("Building + signing the increment (you pay 0 SOL)…");
+    setStatus({ msg: "Signing (you pay 0 SOL)…", kind: "info" });
     try {
-      const connection = new Connection(RPC, "confirmed");
-      const { blockhash } = await connection.getLatestBlockhash("confirmed");
-
-      // Counter increment: fee payer is the batcher sponsor; the user is the
-      // authority. The batcher co-signs as fee payer + rent payer and submits.
+      const conn = new Connection(RPC, "confirmed");
+      const { blockhash } = await conn.getLatestBlockhash("confirmed");
       const tx = new Transaction();
-      tx.feePayer = SPONSOR;
+      tx.feePayer = SPONSOR; // the batcher pays, not the badge
       tx.recentBlockhash = blockhash;
       tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-      tx.add(createIncrementInstruction(wallet.publicKey, value, SPONSOR));
+      tx.add(createPostInstruction(badge.publicKey, body));
+      tx.partialSign(badge);
+      const b64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
+      const sig = tx.signatures.find((s) => s.publicKey.equals(badge.publicKey))?.signature;
 
-      const signed = await wallet.signTransaction(tx);
-      const base64 = signed.serialize({ requireAllSignatures: false }).toString("base64");
-      const userSig = signed.signatures.find(
-        (s) => s.publicKey.equals(wallet.publicKey),
-      )?.signature;
-
-      setStatusMsg("Sending to the batcher (sponsor co-signs + pays gas)…");
+      setStatus({ msg: "Sending to the batcher (sponsor co-signs + pays)…", kind: "info" });
       const res = await fetch(`${BATCHER_URL}/send-input`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: {
             target: DEV_BATCHER_TARGET,
-            address: wallet.publicKey.toBase58(),
+            address: badgePk,
             addressType: ADDRESS_TYPE_SOLANA,
-            input: base64,
-            signature: userSig ? bs58.encode(userSig) : "",
+            input: b64,
+            signature: sig ? bs58.encode(sig) : "",
             timestamp: Date.now().toString(),
           },
-          confirmationLevel: "wait-effectstream-processed",
+          confirmationLevel: "wait-receipt",
         }),
       });
-      const body = await res.json().catch(() => ({}));
+      const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setStatusMsg(`Batcher rejected: ${body.message ?? res.status}`, "error");
+        setStatus({ msg: `Batcher rejected: ${j.message ?? res.status}`, kind: "err" });
       } else {
-        setStatusMsg(
-          "✅ Sponsored on-chain — you paid 0 SOL.",
-          "success",
-          body.transactionHash ?? "",
-        );
+        setDraft("");
+        setStatus({
+          msg: isMember
+            ? "Posted. It will show as verified shortly."
+            : "Posted. Your badge is not a verified member yet, so it will show as not-verified until you join.",
+          kind: "ok",
+        });
       }
     } catch (e) {
-      setStatusMsg(`Error: ${e instanceof Error ? e.message : String(e)}`, "error");
+      setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
     } finally {
       setBusy(false);
     }
   }
 
-  // Aggregate stats for the logs header (increment events only).
-  const incs = events.filter((e) => e.kind !== "reset");
-  const totalDelta = incs.reduce((s, e) => s + BigInt(e.delta || "0"), 0n);
-
   return (
-    <main className="wrap">
-      <h1>Solana Starter — gasless counter</h1>
-      <p className="sub">
-        Connect a wallet and increment an on-chain counter <b>without holding any SOL</b>.
-        The fee-payer batcher co-signs and pays the gas + rent; the sync node indexes it.
-      </p>
+    <div className="wrap">
+      <header>
+        <h1>anonboard</h1>
+        <p className="tag">
+          Every post is provably from a verified member. No post can be traced to a
+          person, not even by whoever runs the servers.
+        </p>
+      </header>
 
-      <section className="card">
-        {!wallet
-          ? <button onClick={connect}>Connect wallet</button>
-          : (
-            <>
-              <div className="wallet-row">
-                <span className="dot connected" title="connected" />
-                <span className="tag">{wallet.kind === "phantom" ? "Phantom" : "dev key"}</span>
-                <code title={wallet.publicKey.toBase58()}>
-                  {shortAddr(wallet.publicKey.toBase58())}
-                </code>
-                <button className="copy-btn" onClick={copyAddress}>
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-                <button className="copy-btn" onClick={disconnect}>Disconnect</button>
-              </div>
-              {wallet.kind === "dev" && (
-                <p className="notice">Ephemeral in-browser keypair — won't persist across reloads.</p>
-              )}
-            </>
+      <section className="me">
+        <div>
+          <span className="label">Your anonymous badge</span>
+          <code>{badgePk}</code>
+        </div>
+        <div>
+          {isMember === null ? (
+            <span className="pill">checking…</span>
+          ) : isMember ? (
+            <span className="pill ok">verified member</span>
+          ) : (
+            <span className="pill warn">not a member yet</span>
           )}
+        </div>
       </section>
 
-      {wallet && (
-        <section className="card">
-          <label>Increment amount</label>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            inputMode="numeric"
-          />
-          <div className="chips">
-            {QUICK_AMOUNTS.map((q) => (
-              <button
-                key={q}
-                className={`chip ${amount === String(q) ? "active" : ""}`}
-                onClick={() => setAmount(String(q))}
-              >
-                +{q}
-              </button>
-            ))}
-          </div>
-          <button onClick={increment} disabled={busy || !amount}>
-            {busy && <span className="spinner" />}
-            {busy ? "Submitting…" : "Submit gasless increment"}
-          </button>
-          {status && (
-            <p className={`status status-${statusKind}`}>
-              {status}
-              {statusKind === "success" && lastSig && (
-                <>
-                  {" · "}
-                  <a className="txlink" href={explorerTxUrl(lastSig)} target="_blank" rel="noreferrer">
-                    {shortAddr(lastSig)}
-                  </a>
-                </>
-              )}
-            </p>
-          )}
-        </section>
+      {!isMember && isMember !== null && (
+        <p className="hint">
+          To become a verified member, an organizer adds your badge to the roster on
+          Midnight (the join proof runs against it). Until then you can still post, but
+          the board marks it not-verified so you can watch the check working.
+        </p>
       )}
 
-      <section className="card">
-        <h2>Leaderboard <small>(from the node, GET /api/counters)</small></h2>
-        {rows.length === 0
-          ? <p className="muted">No counters yet — submit one above.</p>
-          : (
-            <ol className="board">
-              {rows.map((r, i) => (
-                <li key={r.authority} className={wallet?.publicKey.toBase58() === r.authority ? "me" : ""}>
-                  <span className="rank">#{i + 1}</span>
-                  <code>{r.authority.slice(0, 8)}…</code>
-                  <strong className="value">{r.value}</strong>
-                  <span className="slot">slot {r.slot}</span>
-                </li>
-              ))}
-            </ol>
-          )}
+      <section className="composer">
+        <textarea
+          value={draft}
+          maxLength={MAX_BODY}
+          placeholder="Say something…"
+          onChange={(e) => setDraft(e.target.value)}
+          disabled={busy}
+        />
+        <div className="row">
+          <span className="count">
+            {draft.length}/{MAX_BODY}
+          </span>
+          <button onClick={post} disabled={busy || !draft.trim()}>
+            {busy ? "Posting…" : "Post (0 SOL)"}
+          </button>
+        </div>
+        {status.msg && <p className={`status ${status.kind}`}>{status.msg}</p>}
       </section>
 
-      <section className="card">
-        <h2>Incremental logs <small>(from the node, GET /api/counter-events)</small></h2>
-        <p className="agg">
-          {incs.length} increment{incs.length === 1 ? "" : "s"} · +{totalDelta.toLocaleString("en-US")}
-        </p>
-        {events.length === 0
-          ? <p className="muted">No events yet.</p>
-          : (
-            <ul className="memos log">
-              {events.map((e) => {
-                const k = eventKey(e);
-                const isReset = e.kind === "reset";
-                const seen = seenRef.current.get(k);
-                return (
-                  <li key={k} className={newKeys.has(k) ? "new" : ""} title={`slot ${e.slot}`}>
-                    <span className={`kind ${isReset ? "kind-reset" : "kind-inc"}`}>
-                      {isReset ? "reset" : `+${e.delta}`}
-                    </span>
-                    <code>{shortAddr(e.authority)}</code>
-                    <span className="tag">= {e.value}</span>
-                    <span className="slot">{seen ? timeAgo(seen) : ""}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+      <section className="feed">
+        <h2>Board</h2>
+        {posts.length === 0 && <p className="empty">No posts yet.</p>}
+        {posts.map((p) => (
+          <article key={p.id} className={p.accepted ? "post ok" : "post rej"}>
+            <div className="post-head">
+              <span className="who">{p.accepted ? "verified member" : "not verified"}</span>
+              <span className="reason">{p.reason}</span>
+            </div>
+            <p className="body">{p.body}</p>
+          </article>
+        ))}
       </section>
-    </main>
+
+      <footer>
+        <span>Solana + Midnight, joined by one EffectStream state machine.</span>
+      </footer>
+    </div>
   );
 }

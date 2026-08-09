@@ -67,3 +67,22 @@ SOLANA_RPC_PARALLEL sync consumes them; the sync then wedges on a pruned slot
 ("Block N cleaned up, does not exist on node"). A fresh boot resets validator
 and sync to slot 0 together and they keep pace. Fixes: expose extraArgs /
 ledger-size in run(), or start the Solana sync near the tip, or raise retention.
+
+## Update — browser-verified end to end (2026-08-08)
+
+The full loop now runs through a real React frontend (packages/frontend),
+verified live in Chrome:
+
+1. A browser user with ZERO SOL generated an anonymous badge and posted
+   "hello from a browser with zero SOL" gaslessly (the batcher paid).
+2. The arbiter rejected it live: the board showed "not verified · no midnight
+   badge" (red).
+3. The operator blind-joined that browser badge on Midnight (BADGE_PUBKEY);
+   party B paid and submitted, never seeing the membership secret.
+4. The badge synced, the gap-D backfill flipped the post to accepted, and the
+   browser UI updated itself: badge → "verified member" (green), post →
+   "verified member · badge verified (backfilled)".
+
+Frontend: Vite + React, adapted from the inherited solana-starter frontend;
+gasless post via the batcher; live feed + membership from /api/posts and
+/api/badges. Builds clean (vite build, 116 modules).
