@@ -3,14 +3,16 @@
   "version": "1.0.0",
   "exports": {},
   "scripts": {
-    "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! CFG_PRESET=dev bun ../../node_modules/.bin/npm-midnight-node --dev --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+    "midnight-node:build-spec": "(cd ../../node_modules/@effectstream/npm-midnight-node/midnight-node && CFG_PRESET=dev ./midnight-node build-spec --dev) > dev-spec.json",
+    "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! CFG_PRESET=dev bun ../../node_modules/.bin/npm-midnight-node --chain $PWD/dev-spec.json --base-path $PWD/.midnight-data --alice --force-authoring --node-key 0000000000000000000000000000000000000000000000000000000000000001 --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external --rpc-cors=all",
     "midnight-node:wait": "bun ../../node_modules/.bin/wait-on tcp:9944",
-    "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bun ../../node_modules/.bin/npm-midnight-indexer --binary --clean",
+    "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" APP__INFRA__STORAGE__CNN_URL=$PWD/.midnight-data/indexer.sqlite bun ../../node_modules/.bin/npm-midnight-indexer --binary",
     "midnight-indexer:wait": "bun ../../node_modules/.bin/wait-on tcp:8088",
     "midnight-proof-server:start": "RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" bun ../../node_modules/.bin/npm-midnight-proof-server",
     "midnight-proof-server:wait": "bun ../../node_modules/.bin/wait-on tcp:6300",
     "midnight-contract:clean": "rm -rf midnight-level-db && rm -f contract.json contract-anonboard.undeployed.json",
-    "midnight-contract:deploy": "bun run midnight-contract:clean && bun run deploy.ts"
+    "midnight-contract:deploy": "test -f contract-anonboard.undeployed.json || bun run deploy.ts",
+    "midnight:reset": "rm -rf .midnight-data midnight-level-db && rm -f contract.json contract-anonboard.undeployed.json"
   },
   "dependencies": {
     "@effectstream/npm-midnight-indexer": "0.102.0",
