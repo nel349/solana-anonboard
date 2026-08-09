@@ -17,7 +17,7 @@ import {
   DEV_OPERATOR_URL,
   DEV_RPC_URL,
 } from "@solana-starter/contracts-solana";
-import { proveJoin, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
+import { joinViaWallet, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
 import {
   detectMidnightWallets,
   connectMidnightWallet,
@@ -242,21 +242,13 @@ export function App() {
       if (!reg.ok) throw new Error(reg.error ?? "register failed");
 
       setStatus({
-        msg: "Proving membership in your browser (gasless — the operator sponsors the fee)…",
+        msg: `Proving membership in your browser; approve in ${walletName} to pay + submit…`,
         kind: "info",
       });
-      const unboundHex = await proveJoin(badge.publicKey.toBytes(), secret, CONTRACT_ADDRESS);
-
-      setStatus({ msg: "Submitting your join (operator pays the fee)…", kind: "info" });
-      const sub = await fetch(`${DEV_OPERATOR_URL}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unboundHex }),
-      }).then((r) => r.json());
-      if (!sub.ok) throw new Error(sub.error ?? "submit failed");
+      await joinViaWallet(wallet, badge.publicKey.toBytes(), secret, CONTRACT_ADDRESS);
 
       setStatus({
-        msg: "Joined. Your badge becomes a member once the node syncs it.",
+        msg: "Joined with your wallet. Your badge becomes a member once the node syncs it.",
         kind: "ok",
       });
     } catch (e) {
