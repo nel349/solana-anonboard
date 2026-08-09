@@ -1,7 +1,7 @@
 -- Anonymous member badges, mirrored from Midnight's public ledger.
 -- A row here means: some roster member proved membership and bound this
 -- Solana key. Which member, nobody knows, including this database.
-CREATE TABLE badges (
+CREATE TABLE IF NOT EXISTS badges (
   pubkey TEXT PRIMARY KEY,
   block_height INTEGER NOT NULL,
   seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -11,7 +11,7 @@ CREATE TABLE badges (
 -- it records whether the signer held a Midnight badge at the time the post
 -- was folded in. Rejected posts are kept so the demo can show the check
 -- doing real work rather than silently dropping rows.
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
   id SERIAL PRIMARY KEY,
   author TEXT NOT NULL,
   body TEXT NOT NULL,
@@ -22,5 +22,5 @@ CREATE TABLE posts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_posts_author ON posts (author, id DESC);
-CREATE INDEX idx_posts_accepted ON posts (accepted, id DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_author ON posts (author, id DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_accepted ON posts (accepted, id DESC);

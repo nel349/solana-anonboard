@@ -7,6 +7,9 @@
 export const DEV_RPC_URL = "http://localhost:8899";
 export const DEV_BATCHER_URL = "http://localhost:3334";
 export const DEV_NODE_API_URL = "http://localhost:9999";
+// Operator service (packages/operator): the Midnight owner + fee-payer that
+// registers members (add_to_roster) and submits browser-proven join txs.
+export const DEV_OPERATOR_URL = "http://localhost:3335";
 export const DEV_NAMESPACE = "solana-starter";
 export const DEV_BATCHER_FEE_PAYER =
   "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW";

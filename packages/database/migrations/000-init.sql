@@ -1,5 +1,5 @@
 -- Latest counter value per authority (one PDA per user on-chain).
-CREATE TABLE counter_state (
+CREATE TABLE IF NOT EXISTS counter_state (
   authority TEXT PRIMARY KEY,
   value BIGINT NOT NULL DEFAULT 0,
   slot BIGINT NOT NULL,           -- Solana slot the value was last seen at
@@ -8,7 +8,7 @@ CREATE TABLE counter_state (
 );
 
 -- Append-only log of counter changes.
-CREATE TABLE counter_events (
+CREATE TABLE IF NOT EXISTS counter_events (
   id SERIAL PRIMARY KEY,
   authority TEXT NOT NULL,
   value BIGINT NOT NULL,
@@ -19,4 +19,4 @@ CREATE TABLE counter_events (
   emitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_counter_events_authority ON counter_events (authority, id DESC);
+CREATE INDEX IF NOT EXISTS idx_counter_events_authority ON counter_events (authority, id DESC);

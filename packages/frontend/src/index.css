@@ -16,8 +16,22 @@ header h1 { margin: 0; font-size: 30px; letter-spacing: -0.5px; }
   border: 1px solid var(--line); white-space: nowrap; }
 .pill.ok { color: var(--ok); border-color: #1e3a26; background: #10231a; }
 .pill.warn { color: var(--warn); border-color: #3a3320; background: #23200f; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 3px; }
+.stat .k { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.4px; }
+.stat .v { font-size: 15px; font-weight: 600; }
+.stat .v code { font-size: 13px; color: var(--accent); }
+.stat .sub { font-size: 11px; color: var(--dim); }
+@media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
 .hint { color: var(--dim); font-size: 13px; background: #12151d; border: 1px dashed var(--line);
   border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+.hint strong { color: var(--rej); font-weight: 600; }
+.hint p { margin: 0 0 10px; }
+.wallet-line { margin: 0 0 8px; font-size: 13px; }
+.wallet-line strong { color: var(--accent); font-weight: 600; }
+button.join { background: var(--ok); color: #06120a; }
+.wallet-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .composer { margin: 20px 0 8px; }
 .composer textarea { width: 100%; min-height: 84px; resize: vertical; background: var(--panel);
   color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: inherit; }

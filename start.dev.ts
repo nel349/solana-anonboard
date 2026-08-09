@@ -87,6 +87,20 @@ export default {
       ],
     },
 
+    // Operator: the Midnight owner + fee-payer. Registers members on the roster
+    // (add_to_roster) and pays + submits browser-proven join txs. Needs the
+    // contract deployed (it reads the address and builds the owner wallet).
+    {
+      name: "operator",
+      description: "Midnight operator (roster registrar + join fee-payer)",
+      args: ["run", "packages/operator/operator.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3335",
+      stopProcessAtPort: [3335],
+      dependsOn: [...midnightDeps],
+    },
+
     // Fund the batcher fee-payer wallet so it can pay gas.
     {
       name: "airdrop-batcher",
@@ -117,7 +131,12 @@ export default {
       type: "system-dependency",
       link: "http://localhost:5173",
       stopProcessAtPort: [5173],
-      dependsOn: ["batcher"],
+      // Must wait for the Midnight deploy, not just the batcher: the frontend's
+      // predev `copy-zk` reads the compiled join keys and the app imports the
+      // deployed contract address. Depending only on the batcher let the
+      // frontend boot first and copy empty/half-written keys (proof server then
+      // 400s). midnightDeps = contract deploy, which is after the compile.
+      dependsOn: ["batcher", ...midnightDeps],
     },
   ],
 } satisfies OrchestratorConfig;
