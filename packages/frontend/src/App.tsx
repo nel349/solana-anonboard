@@ -128,6 +128,11 @@ export function App() {
     kind: "info",
   });
   const [busy, setBusy] = useState(false);
+  // Optimistic posts: shown the instant you click Post, before the ~2s
+  // Solana-confirm + rollup round-trip. Each is dropped once the real row
+  // (same body + this badge) shows up in the feed. Makes posting feel instant
+  // on a fast chain; the truth still arrives from the sync.
+  const [optimistic, setOptimistic] = useState<{ body: string; ts: number }[]>([]);
 
   // Poll the node for the feed and this badge's membership. The board is a
   // public read: no wallet needed to look.
@@ -139,8 +144,13 @@ export function App() {
         const pJson = await pRes.json();
         const bJson = await bRes.json();
         if (!alive) return;
-        setPosts(pJson.posts ?? []);
+        const realPosts: Post[] = pJson.posts ?? [];
+        setPosts(realPosts);
         setIsMember((bJson.badges ?? []).some((b: { pubkey: string }) => b.pubkey === badgePk));
+        // Reconcile: drop any optimistic post the sync has now materialized.
+        setOptimistic((prev) =>
+          prev.filter((o) => !realPosts.some((p) => p.body === o.body && p.author === badgePk)),
+        );
       } catch {
         /* stack not up yet; keep polling */
       }
@@ -259,6 +269,10 @@ export function App() {
   async function post() {
     const body = draft.trim();
     if (!body) return;
+    // Show it immediately (optimistic) and clear the box — feels instant.
+    const ts = Date.now();
+    setOptimistic((prev) => [{ body, ts }, ...prev]);
+    setDraft("");
     setBusy(true);
     setStatus({ msg: "Signing (you pay 0 SOL)…", kind: "info" });
     try {
@@ -291,17 +305,18 @@ export function App() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setOptimistic((prev) => prev.filter((o) => o.ts !== ts)); // roll back
         setStatus({ msg: `Batcher rejected: ${j.message ?? res.status}`, kind: "err" });
       } else {
-        setDraft("");
         setStatus({
           msg: isMember
-            ? "Posted. It will appear as a member post shortly."
-            : "Posted. Your badge has not joined on Midnight yet, so it shows as 'not a member' until you join.",
+            ? "Posted — confirming on-chain…"
+            : "Posted — confirming on-chain (shows 'not a member' until you join)…",
           kind: "ok",
         });
       }
     } catch (e) {
+      setOptimistic((prev) => prev.filter((o) => o.ts !== ts)); // roll back
       setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
     } finally {
       setBusy(false);
@@ -419,7 +434,18 @@ export function App() {
 
       <section className="feed">
         <h2>Board</h2>
-        {posts.length === 0 && <p className="empty">No posts yet.</p>}
+        {posts.length === 0 && optimistic.length === 0 && <p className="empty">No posts yet.</p>}
+        {optimistic
+          .filter((o) => !posts.some((p) => p.body === o.body && p.author === badgePk))
+          .map((o) => (
+            <article key={`opt-${o.ts}`} className="post pending">
+              <div className="post-head">
+                <span className="who">sending…</span>
+                <span className="reason">confirming on Solana + Midnight</span>
+              </div>
+              <p className="body">{o.body}</p>
+            </article>
+          ))}
         {posts.map((p) => (
           <article key={p.id} className={p.accepted ? "post ok" : "post rej"}>
             <div className="post-head">

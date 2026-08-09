@@ -48,6 +48,9 @@ button:disabled { opacity: 0.5; cursor: default; }
   border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
 .post.ok { border-left-color: var(--ok); }
 .post.rej { border-left-color: var(--rej); opacity: 0.75; }
+.post.pending { border-left-color: var(--accent); opacity: 0.6; }
+.post.pending .who { color: var(--accent); }
+.post.pending .body { font-style: italic; }
 .post-head { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; margin-bottom: 6px; }
 .post-head .who { font-weight: 600; }
 .post.ok .who { color: var(--ok); } .post.rej .who { color: var(--rej); }
