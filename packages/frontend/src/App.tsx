@@ -146,7 +146,10 @@ export function App() {
       }
     };
     tick();
-    const h = setInterval(tick, 2500);
+    // 500ms feed poll (was 2500) so the board reflects the now-sub-second sync
+    // quickly. Faithful follow-up: subscribe to the sync's MQTT push
+    // (ws://127.0.0.1:9883, RollupBlock) and drop polling entirely.
+    const h = setInterval(tick, 500);
     return () => {
       alive = false;
       clearInterval(h);
