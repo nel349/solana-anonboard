@@ -188,13 +188,28 @@ invite type, then the admin UI can be a script instead of a screen.
 - **Ledger pruning wedging the Solana sync on a long run** (finding #4): fix by
   configuring validator retention / starting the sync near tip; do not rely on a
   fresh boot in production.
-- **Anonymity is protocol-level, not network-level.** The badge→member link
-  never touches either chain, but the batcher sees that *some* request arrived
-  (timing/IP). For a strong claim, note this; if it matters, add basic request
-  mixing. Say so plainly rather than overclaiming "untraceable."
-- **Roster trust.** Whoever controls the roster controls who can post. That is
-  inherent and fine, but state it: the operator is trusted to gate membership,
-  not to see who posted.
+- **Membership itself is proven, cryptographically, and is not a risk.** The
+  `join` circuit asserts `roster.member(public_key(sk))` — a zero-knowledge proof
+  that the caller controls a secret behind a roster entry, without revealing
+  which one, enforced on-chain and usable only once (nullifier). This is the
+  strongest part of the system; it is listed here only to be explicit that it is
+  solid.
+- **On-chain, who-posted-what is cryptographically hidden.** The join discloses
+  only the badge and a nullifier; the nullifier map is not exported, so nothing
+  on either chain links a badge (or a post) to a member. This holds absolutely.
+- **The one soft edge is off-chain request metadata, not the chains.** The
+  batcher is the server that receives submit requests, so it can see that *a*
+  request arrived at a given time from a given IP. With few active users, an
+  observer running the batcher could *guess* a correlation from timing alone —
+  never from chain data. This is standard for any app with a central submission
+  point and is fixable (request batching, delays, Tor). State it plainly rather
+  than claiming "untraceable"; do not let it be read as if membership or on-chain
+  unlinkability were in doubt — they are not.
+- **Roster trust is a guest-list question, separate from the proof.** Whoever
+  controls the roster decides *who may be admitted* (Decision A). That is a trust
+  assumption inherent to any allowlist. It is distinct from *proving* membership,
+  which is trustless and in-circuit. The operator is trusted to choose the guest
+  list, never to see who posted.
 
 ---
 
