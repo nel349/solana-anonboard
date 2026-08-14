@@ -50,7 +50,7 @@ stm.addStateTransition("midnight-badges", function* (data) {
     yield* World.resolve(insertBadge, { pubkey, block_height: blockHeight });
     // Backfill: a post from this author that arrived before the badge synced
     // was rejected only for lack of a badge. Now that the badge is here, accept
-    // it. This resolves the cross-chain ordering race (gap D).
+    // it. This resolves the cross-chain ordering race.
     yield* World.resolve(acceptPostsForAuthor, { author: pubkey });
   }
 });

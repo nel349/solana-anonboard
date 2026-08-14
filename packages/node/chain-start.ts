@@ -9,7 +9,7 @@
 // directly to pass --bpf-program, which duplicated all of that AND skipped the
 // checksum verification.
 //
-// KNOWN FOLLOW-UP (bug #4): run() exposes no --limit-ledger-size, so after
+// Known limitation: run() exposes no --limit-ledger-size, so after
 // ~45 min the validator prunes blocks the Solana sync still needs and the sync
 // wedges. A direct-spawn variant that passes a large --limit-ledger-size fixes
 // the stall but shifts boot timing enough to race the DB migrations (sync

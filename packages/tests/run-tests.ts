@@ -1,5 +1,5 @@
 /**
- * Solana-starter test runner.
+ * Integration test runner.
  *
  * Phases:
  *   A. Infrastructure: validator up, counter program loaded, batcher funded

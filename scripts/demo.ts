@@ -142,8 +142,8 @@ async function main() {
     ["BADGE HOLDER", badge, "gm from a verified member"],
     ["STRANGER", stranger, "i never joined but here i am"],
   ] as const) {
-    // PoC note: the keypair still self-funds its fee here. Routing this through
-    // the batcher as fee-payer (so the author holds no SOL) is the next gap.
+    // The keypair self-funds its fee here; a fully feeless variant would route
+    // this through the batcher as fee-payer (see gasless-post.ts).
     const sig = await conn.requestAirdrop(kp.publicKey, LAMPORTS_PER_SOL);
     await conn.confirmTransaction(sig, "confirmed");
     const tx = new Transaction().add(

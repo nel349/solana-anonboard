@@ -1,9 +1,11 @@
-//! Minimal Solana counter program. See the template README for how it fits
-//! into the sync node / batcher round-trip.
+//! Minimal Solana program backing the anonboard example. See the README for how
+//! it fits into the sync node / batcher round-trip.
 //!
-//! Stores a `u64` counter in a PDA seeded by the user's pubkey, with two
-//! instructions ( `Increment(amount)`, `Reset` ), and emits a log line on
-//! every call: `EFFECTSTREAM_COUNTER|<authority>|<value>|<slot>`.
+//! Three instructions:
+//!   - `Increment(amount)` / `Reset` update a `u64` counter in a PDA seeded by
+//!     the user's pubkey and emit `EFFECTSTREAM_COUNTER|<authority>|<value>|<slot>`.
+//!   - `Post(body)` emits `ANONBOARD_POST|<author>|<slot>|<body>` — the post the
+//!     sync node counts once the author holds a membership badge.
 //!
 //! Feeless for the user: the PDA's rent is funded by a dedicated `payer`
 //! account ( the batcher's fee-payer ), not the authority. The authority only

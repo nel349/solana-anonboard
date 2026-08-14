@@ -160,7 +160,7 @@ async function submit(unboundHex: string): Promise<{ txid: string }> {
 
 // ── HTTP (Bun.serve) ────────────────────────────────────────────────────────
 function cors(origin: string | null): Record<string, string> {
-  // Dev-only: reflect any localhost origin so :5173 and the :5174 spike both work.
+  // Dev-only: reflect any localhost origin so the Vite dev server works on any port.
   const allow = origin && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ? origin : "*";
   return {
     "access-control-allow-origin": allow,

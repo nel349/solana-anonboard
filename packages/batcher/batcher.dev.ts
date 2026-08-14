@@ -19,7 +19,7 @@ import {
  *   POST /send-input — see `@effectstream/batcher-sdk` HTTP API.
  *
  * The adapter is `SolanaAdapter` (see solana-adapter.ts). The frontend
- * signs the inner counter instruction and submits the partial tx here;
+ * signs the inner program instruction and submits the partial tx here;
  * we add the fee-payer signature and submit to the local validator.
  *
  * IMPORTANT: `namespace` below MUST match the `securityNamespace` the
@@ -74,7 +74,7 @@ const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
 
 main(function* () {
-  console.log("Starting Solana starter batcher...");
+  console.log("Starting batcher...");
   console.log(`  rpc:       ${RPC_URL}`);
   console.log(`  sync:      ${SYNC_PROTOCOL_NAME}`);
   console.log(`  namespace: ${NAMESPACE}`);

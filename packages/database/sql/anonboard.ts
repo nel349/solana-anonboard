@@ -90,7 +90,7 @@ export const getAllPosts = prepare<Record<string, never>, IGetPostsResult>(
 FROM posts ORDER BY id DESC`,
 );
 
-// Gap D (ordering): Midnight sync catches up from block 1 while Solana is
+// Ordering: Midnight sync catches up from block 1 while Solana is
 // already current, so a post can be folded and rejected before its badge
 // arrives. When a badge lands, backfill any earlier posts by that author that
 // were rejected only for lack of a badge. Idempotent and replay-safe.

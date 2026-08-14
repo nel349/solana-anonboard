@@ -1,4 +1,4 @@
-// Gap C: operator-blind join.
+// Operator-blind join.
 //
 // The property to prove: the party that PAYS for and submits the join never
 // sees the roster secret. This is what makes "the batcher/operator never sees

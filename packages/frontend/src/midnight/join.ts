@@ -1,6 +1,5 @@
 // Prove the Midnight `join` circuit in the browser and derive a member's public
-// key from a membership secret. This is the verified spike logic
-// (packages/frontend/spike.tsx) lifted into a reusable module the app calls.
+// key from a membership secret.
 //
 // The membership secret (32 bytes) never leaves the browser: it is stored as
 // this contract's private state, and the `private$secret_key` witness resolves

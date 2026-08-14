@@ -1,4 +1,4 @@
-// Gap B: gasless posting through the batcher.
+// Gasless posting through the batcher.
 //
 // The poster (a badge holder from blind-join, poster.json) holds ZERO SOL. It
 // builds a post whose fee-payer is the batcher's sponsor, signs only its own

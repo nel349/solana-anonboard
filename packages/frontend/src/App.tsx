@@ -55,15 +55,14 @@ const BADGE_STORAGE_KEY = "anonboard.badge.v1";
 // The membership secret (32 bytes) is the roster identity, separate from the
 // badge. It is generated and kept in the browser; deriving its public key and
 // proving `join` both happen client-side, so the operator never sees it.
-// NOTE (todo E, follow-up): this is plaintext localStorage for the demo; a real
-// build must encrypt it.
+// Plaintext localStorage is for the demo only; a real build must encrypt it.
 const CONTRACT_ADDRESS = contractInfo.contractAddress;
 const NETWORK_ID = "undeployed";
 
 // The membership secret is keyed by the connected wallet's stable coin public
 // key, so the same wallet always maps to the same roster member (signData is not
 // guaranteed deterministic, so we don't derive from a signature). Kept in
-// localStorage for the demo (todo E: encrypt for production).
+// localStorage for the demo; encrypt for production.
 function loadOrCreateSecretForWallet(coinPublicKey: string): Uint8Array {
   const key = `anonboard.secret.v2.${coinPublicKey}`;
   const saved = localStorage.getItem(key);
@@ -156,9 +155,9 @@ export function App() {
       }
     };
     tick();
-    // 500ms feed poll (was 2500) so the board reflects the now-sub-second sync
-    // quickly. Faithful follow-up: subscribe to the sync's MQTT push
-    // (ws://127.0.0.1:9883, RollupBlock) and drop polling entirely.
+    // Poll the feed every 500ms so the board reflects the sub-second sync
+    // quickly. A production build could subscribe to the sync's MQTT push
+    // (ws://127.0.0.1:9883, RollupBlock) instead of polling.
     const h = setInterval(tick, 500);
     return () => {
       alive = false;
