@@ -1,5 +1,5 @@
 import { assert } from "../helpers.ts";
-import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana";
+import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const RPC_URL = "http://localhost:8899";
 

@@ -5,7 +5,7 @@
 import { run } from "@effectstream/solana-node";
 import fs from "node:fs";
 import path from "node:path";
-import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
+import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 
 const RPC_PORT = Number(process.env.SOLANA_RPC_PORT ?? "8899");
 const FAUCET_PORT = Number(process.env.SOLANA_FAUCET_PORT ?? "9900");
@@ -21,7 +21,7 @@ async function main() {
   if (!fs.existsSync(PROGRAM_SO)) {
     console.error(
       `[chain:start] Missing ${path.relative(TEMPLATE_ROOT, PROGRAM_SO)}.\n` +
-        `Run \`bun run --filter @solana-starter/contracts-solana build\` first.`,
+        `Run \`bun run --filter @solana-anonboard/contracts-solana build\` first.`,
     );
     process.exit(1);
   }

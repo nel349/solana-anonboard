@@ -11,17 +11,17 @@
       },
     },
     "packages/batcher": {
-      "name": "@solana-starter/batcher",
+      "name": "@solana-anonboard/batcher",
       "version": "1.0.0",
       "dependencies": {
         "@effectstream/batcher-sdk": "0.102.0",
-        "@solana-starter/contracts-solana": "workspace:*",
+        "@solana-anonboard/contracts-solana": "workspace:*",
         "bs58": "^6.0.0",
         "effection": "^3.5.0",
       },
     },
     "packages/contracts-midnight": {
-      "name": "@anonboard/contracts-midnight",
+      "name": "@solana-anonboard/contracts-midnight",
       "version": "1.0.0",
       "dependencies": {
         "@effectstream/midnight-contracts": "0.102.0",
@@ -35,14 +35,14 @@
       },
     },
     "packages/contracts-midnight/contract-anonboard": {
-      "name": "@anonboard/midnight-contract",
+      "name": "@solana-anonboard/midnight-contract",
       "dependencies": {
         "@midnight-ntwrk/compact-js": "2.5.1",
         "@midnight-ntwrk/compact-runtime": "0.16.0",
       },
     },
     "packages/contracts-solana": {
-      "name": "@solana-starter/contracts-solana",
+      "name": "@solana-anonboard/contracts-solana",
       "version": "1.0.0",
       "dependencies": {
         "@effectstream/solana-node": "0.102.0",
@@ -51,7 +51,7 @@
       },
     },
     "packages/database": {
-      "name": "@solana-starter/database",
+      "name": "@solana-anonboard/database",
       "version": "1.0.0",
       "dependencies": {
         "@effectstream/config": "0.102.0",
@@ -66,10 +66,9 @@
       },
     },
     "packages/frontend": {
-      "name": "@solana-starter/frontend",
+      "name": "@solana-anonboard/frontend",
       "version": "0.1.0",
       "dependencies": {
-        "@anonboard/contracts-midnight": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.1",
         "@midnight-ntwrk/compact-runtime": "0.16.0",
         "@midnight-ntwrk/ledger-v8": "8.1.0",
@@ -81,7 +80,8 @@
         "@midnight-ntwrk/midnight-js-utils": "4.1.1",
         "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
         "@midnight-ntwrk/wallet-sdk-address-format": "3.1.2",
-        "@solana-starter/contracts-solana": "workspace:*",
+        "@solana-anonboard/contracts-midnight": "workspace:*",
+        "@solana-anonboard/contracts-solana": "workspace:*",
         "@solana/web3.js": "^1.95.0",
         "bs58": "^6.0.0",
         "react": "19.1.0",
@@ -98,10 +98,9 @@
       },
     },
     "packages/node": {
-      "name": "@solana-starter/node",
+      "name": "@solana-anonboard/node",
       "version": "0.1.0",
       "dependencies": {
-        "@anonboard/midnight-contract": "workspace:*",
         "@effectstream/concise": "0.102.0",
         "@effectstream/config": "0.102.0",
         "@effectstream/coroutine": "0.102.0",
@@ -115,8 +114,9 @@
         "@effectstream/utils": "0.102.0",
         "@effectstream/wallets": "0.102.0",
         "@sinclair/typebox": "0.34.41",
-        "@solana-starter/contracts-solana": "workspace:*",
-        "@solana-starter/database": "workspace:*",
+        "@solana-anonboard/contracts-solana": "workspace:*",
+        "@solana-anonboard/database": "workspace:*",
+        "@solana-anonboard/midnight-contract": "workspace:*",
         "@solana/web3.js": "^1.95.0",
         "bs58": "^6.0.0",
         "effection": "^3.5.0",
@@ -125,23 +125,23 @@
       },
     },
     "packages/operator": {
-      "name": "@solana-starter/operator",
+      "name": "@solana-anonboard/operator",
       "version": "1.0.0",
       "dependencies": {
-        "@anonboard/contracts-midnight": "workspace:*",
         "@effectstream/midnight-contracts": "0.102.0",
         "@midnight-ntwrk/compact-js": "2.5.1",
         "@midnight-ntwrk/ledger-v8": "8.1.0",
         "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
         "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
         "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+        "@solana-anonboard/contracts-midnight": "workspace:*",
       },
     },
     "packages/tests": {
-      "name": "@solana-starter/tests",
+      "name": "@solana-anonboard/tests",
       "version": "1.0.0",
       "dependencies": {
-        "@solana-starter/contracts-solana": "workspace:*",
+        "@solana-anonboard/contracts-solana": "workspace:*",
         "@solana/web3.js": "^1.95.0",
         "bs58": "^6.0.0",
         "pg": "^8.14.0",
@@ -151,10 +151,6 @@
   },
   "packages": {
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
-
-    "@anonboard/contracts-midnight": ["@anonboard/contracts-midnight@workspace:packages/contracts-midnight"],
-
-    "@anonboard/midnight-contract": ["@anonboard/midnight-contract@workspace:packages/contracts-midnight/contract-anonboard"],
 
     "@apollo/client": ["@apollo/client@4.2.9", "", { "dependencies": { "@graphql-typed-document-node/core": "^3.1.1", "@wry/caches": "^1.0.0", "@wry/equality": "^0.5.6", "@wry/trie": "^0.5.0", "graphql-tag": "^2.12.6", "optimism": "^0.18.0", "tslib": "^2.3.0" }, "peerDependencies": { "graphql": "^16.0.0 || ^17.0.0", "graphql-ws": "^5.5.5 || ^6.0.3", "react": "^17.0.0 || ^18.0.0 || >=19.0.0-rc", "react-dom": "^17.0.0 || ^18.0.0 || >=19.0.0-rc", "rxjs": "^7.3.0", "subscriptions-transport-ws": "^0.9.0 || ^0.11.0" }, "optionalPeers": ["graphql-ws", "react", "react-dom", "subscriptions-transport-ws"] }, "sha512-miiAhuhnjZjdYvSYNckvBGHyM8N4McGyrDyf7yIMDHzpt85FlS7k7JgixHqkAy1+MXGl9vYlTDfKS7alEDGbvQ=="],
 
@@ -880,19 +876,23 @@
 
     "@sindresorhus/is": ["@sindresorhus/is@4.6.0", "", {}, "sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw=="],
 
-    "@solana-starter/batcher": ["@solana-starter/batcher@workspace:packages/batcher"],
+    "@solana-anonboard/batcher": ["@solana-anonboard/batcher@workspace:packages/batcher"],
 
-    "@solana-starter/contracts-solana": ["@solana-starter/contracts-solana@workspace:packages/contracts-solana"],
+    "@solana-anonboard/contracts-midnight": ["@solana-anonboard/contracts-midnight@workspace:packages/contracts-midnight"],
 
-    "@solana-starter/database": ["@solana-starter/database@workspace:packages/database"],
+    "@solana-anonboard/contracts-solana": ["@solana-anonboard/contracts-solana@workspace:packages/contracts-solana"],
 
-    "@solana-starter/frontend": ["@solana-starter/frontend@workspace:packages/frontend"],
+    "@solana-anonboard/database": ["@solana-anonboard/database@workspace:packages/database"],
 
-    "@solana-starter/node": ["@solana-starter/node@workspace:packages/node"],
+    "@solana-anonboard/frontend": ["@solana-anonboard/frontend@workspace:packages/frontend"],
 
-    "@solana-starter/operator": ["@solana-starter/operator@workspace:packages/operator"],
+    "@solana-anonboard/midnight-contract": ["@solana-anonboard/midnight-contract@workspace:packages/contracts-midnight/contract-anonboard"],
 
-    "@solana-starter/tests": ["@solana-starter/tests@workspace:packages/tests"],
+    "@solana-anonboard/node": ["@solana-anonboard/node@workspace:packages/node"],
+
+    "@solana-anonboard/operator": ["@solana-anonboard/operator@workspace:packages/operator"],
+
+    "@solana-anonboard/tests": ["@solana-anonboard/tests@workspace:packages/tests"],
 
     "@solana/buffer-layout": ["@solana/buffer-layout@4.0.1", "", { "dependencies": { "buffer": "~6.0.3" } }, "sha512-E1ImOIAD1tBZFRdjeM4/pzTiTApC0AOBGwyAMS4fwIodCWArzJ3DWdoh8cKxeFM2fElkxBh2Aqts1BPC373rHA=="],
 

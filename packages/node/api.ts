@@ -5,7 +5,7 @@ import {
   getAllPosts,
   getCounterByAuthority,
   getRecentEvents,
-} from "@solana-starter/database";
+} from "@solana-anonboard/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type { FastifyInstance } from "fastify";

@@ -1,5 +1,5 @@
 {
-  "name": "@solana-starter/operator",
+  "name": "@solana-anonboard/operator",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "start": "bun run operator.dev.ts"
   },
   "dependencies": {
-    "@anonboard/contracts-midnight": "workspace:*",
+    "@solana-anonboard/contracts-midnight": "workspace:*",
     "@effectstream/midnight-contracts": "0.102.0",
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/ledger-v8": "8.1.0",

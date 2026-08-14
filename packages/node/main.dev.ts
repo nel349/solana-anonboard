@@ -9,7 +9,7 @@ import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
-import { migrationTable } from "@solana-starter/database";
+import { migrationTable } from "@solana-anonboard/database";
 
 // User migrations run only when main block 1 is processed, but the Solana leg
 // catches up slots first — a query then hits 42P01 and kills the sync. Create the
@@ -40,7 +40,7 @@ main(function* () {
   yield* withEffectstreamStaticConfig(config, function* () {
     yield* call(() => ensureAppSchema());
     yield* start({
-      appName: "solana-starter",
+      appName: "solana-anonboard",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,

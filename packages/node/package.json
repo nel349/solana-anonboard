@@ -1,5 +1,5 @@
 {
-  "name": "@solana-starter/node",
+  "name": "@solana-anonboard/node",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -21,14 +21,14 @@
     "@effectstream/utils": "0.102.0",
     "@effectstream/wallets": "0.102.0",
     "@sinclair/typebox": "0.34.41",
-    "@solana-starter/contracts-solana": "workspace:*",
-    "@solana-starter/database": "workspace:*",
+    "@solana-anonboard/contracts-solana": "workspace:*",
+    "@solana-anonboard/database": "workspace:*",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0",
     "effection": "^3.5.0",
     "pg": "^8.14.0",
     "wait-on": "8.0.3",
-    "@anonboard/midnight-contract": "workspace:*",
+    "@solana-anonboard/midnight-contract": "workspace:*",
     "@effectstream/midnight-contracts": "0.102.0"
   }
 }

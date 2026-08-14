@@ -17,13 +17,13 @@ import {
   Transaction,
   ComputeBudgetProgram,
 } from "@solana/web3.js";
-import { createPostInstruction } from "@solana-starter/contracts-solana";
+import { createPostInstruction } from "@solana-anonboard/contracts-solana";
 import {
   DEV_RPC_URL,
   DEV_BATCHER_URL,
   DEV_BATCHER_FEE_PAYER,
   DEV_BATCHER_TARGET,
-} from "@solana-starter/contracts-solana";
+} from "@solana-anonboard/contracts-solana";
 
 const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
 const ADDRESS_TYPE_SOLANA = 9;

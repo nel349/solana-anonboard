@@ -9,7 +9,7 @@ const root = path.resolve(import.meta.dirname!, "../..");
 // counter.so for --bpf-program).
 // Use `cwd`, not `resolveFrom`: resolveFrom can't see this template's own
 // workspace packages when the orchestrator is installed from npm, not symlinked.
-const solanaProcesses = launchSolana("@solana-starter/node", {
+const solanaProcesses = launchSolana("@solana-anonboard/node", {
   cwd: path.join(root, "packages/node"),
 });
 const idx = solanaProcesses.findIndex((p) => p.name === SolanaNames.SOLANA_VALIDATOR);

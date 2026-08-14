@@ -13,7 +13,7 @@ const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 // Validator waits on the counter build (needs build/counter.so for `--bpf-program`).
 // cwd, not resolveFrom: require.resolve can't see this template's workspace
 // packages once @effectstream/orchestrator is an installed npm dep.
-const solanaProcesses = launchSolana("@solana-starter/node", {
+const solanaProcesses = launchSolana("@solana-anonboard/node", {
   cwd: path.join(root, "packages/node"),
 });
 const solanaValidatorIdx = solanaProcesses.findIndex(
@@ -59,7 +59,7 @@ export default {
     },
 
     ...launchMidnight(
-      "@anonboard/contracts-midnight",
+      "@solana-anonboard/contracts-midnight",
       { cwd: path.join(root, "packages/contracts-midnight") },
       {
         dependsOn: ["midnight-contract-compile"],

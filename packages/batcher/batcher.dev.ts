@@ -10,7 +10,7 @@ import {
   DEV_RPC_URL,
   DEV_NAMESPACE,
   COUNTER_PROGRAM_ID,
-} from "@solana-starter/contracts-solana";
+} from "@solana-anonboard/contracts-solana";
 
 /**
  * Dev batcher entry point. HTTP: POST http://localhost:3334/send-input.

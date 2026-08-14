@@ -1,5 +1,5 @@
 {
-  "name": "@solana-starter/batcher",
+  "name": "@solana-anonboard/batcher",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@effectstream/batcher-sdk": "0.102.0",
-    "@solana-starter/contracts-solana": "workspace:*",
+    "@solana-anonboard/contracts-solana": "workspace:*",
     "bs58": "^6.0.0",
     "effection": "^3.5.0"
   }

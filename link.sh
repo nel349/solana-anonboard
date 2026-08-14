@@ -45,12 +45,12 @@ link_pkg() {
 }
 
 echo "Linking workspace packages..."
-link_pkg "solana-starter" "node"              "$SCRIPT_DIR/packages/node"
-link_pkg "solana-starter" "contracts-solana"  "$SCRIPT_DIR/packages/contracts-solana"
-link_pkg "solana-starter" "database"          "$SCRIPT_DIR/packages/database"
-link_pkg "solana-starter" "batcher"           "$SCRIPT_DIR/packages/batcher"
-link_pkg "solana-starter" "frontend"          "$SCRIPT_DIR/packages/frontend"
-link_pkg "solana-starter" "tests"             "$SCRIPT_DIR/packages/tests"
+link_pkg "solana-anonboard" "node"              "$SCRIPT_DIR/packages/node"
+link_pkg "solana-anonboard" "contracts-solana"  "$SCRIPT_DIR/packages/contracts-solana"
+link_pkg "solana-anonboard" "database"          "$SCRIPT_DIR/packages/database"
+link_pkg "solana-anonboard" "batcher"           "$SCRIPT_DIR/packages/batcher"
+link_pkg "solana-anonboard" "frontend"          "$SCRIPT_DIR/packages/frontend"
+link_pkg "solana-anonboard" "tests"             "$SCRIPT_DIR/packages/tests"
 
 echo ""
 echo "Linking @effectstream packages..."

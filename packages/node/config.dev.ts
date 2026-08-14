@@ -7,10 +7,10 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeSolanaProgramLog,
 } from "@effectstream/sm/builtin";
-import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
+import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
-import * as AnonboardContract from "@anonboard/midnight-contract/contract";
+import * as AnonboardContract from "@solana-anonboard/midnight-contract/contract";
 
 const midnight = readMidnightContract("contract-anonboard", {
   networkId: midnightNetworkConfig.id,

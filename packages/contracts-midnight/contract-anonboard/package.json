@@ -1,5 +1,5 @@
 {
-  "name": "@anonboard/midnight-contract",
+  "name": "@solana-anonboard/midnight-contract",
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",

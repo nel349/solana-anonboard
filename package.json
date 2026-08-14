@@ -1,5 +1,5 @@
 {
-  "name": "solana-starter",
+  "name": "solana-anonboard",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "dev": "NODE_ENV=development bunx orchestrator start",
-    "build:solana": "bun run --filter @solana-starter/contracts-solana build",
-    "build:pgtypes": "bun run --filter @solana-starter/database pgtyped:update",
+    "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
+    "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
     "test": "bun run packages/tests/run-tests.ts",
     "postinstall": "bun run scripts/dedupe-midnight-wasm.ts"
   },

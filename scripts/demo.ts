@@ -20,7 +20,7 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import { createPostInstruction } from "@solana-starter/contracts-solana";
+import { createPostInstruction } from "@solana-anonboard/contracts-solana";
 import {
   Anonboard,
   createAnonboardPrivateState,

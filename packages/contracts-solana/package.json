@@ -1,5 +1,5 @@
 {
-  "name": "@solana-starter/contracts-solana",
+  "name": "@solana-anonboard/contracts-solana",
   "version": "1.0.0",
   "private": true,
   "type": "module",

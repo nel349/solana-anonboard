@@ -16,7 +16,7 @@ import {
   DEV_NODE_API_URL,
   DEV_OPERATOR_URL,
   DEV_RPC_URL,
-} from "@solana-starter/contracts-solana";
+} from "@solana-anonboard/contracts-solana";
 import { joinViaWallet, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
 import {
   detectMidnightWallets,

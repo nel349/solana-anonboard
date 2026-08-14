@@ -1,5 +1,5 @@
 {
-  "name": "@anonboard/contracts-midnight",
+  "name": "@solana-anonboard/contracts-midnight",
   "version": "1.0.0",
   "exports": {},
   "scripts": {

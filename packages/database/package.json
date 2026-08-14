@@ -1,5 +1,5 @@
 {
-  "name": "@solana-starter/database",
+  "name": "@solana-anonboard/database",
   "version": "1.0.0",
   "exports": "./mod.ts",
   "scripts": {

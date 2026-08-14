@@ -9,7 +9,7 @@ import {
   DEV_BATCHER_URL,
   DEV_BATCHER_FEE_PAYER,
   DEV_BATCHER_TARGET,
-} from "@solana-starter/contracts-solana";
+} from "@solana-anonboard/contracts-solana";
 
 const RPC_URL = DEV_RPC_URL;
 const BATCHER_URL = DEV_BATCHER_URL;
