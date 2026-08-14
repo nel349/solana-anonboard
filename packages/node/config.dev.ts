@@ -24,11 +24,9 @@ export const config = new ConfigBuilder()
         name: "ntp",
         type: ConfigNetworkType.NTP,
         startTime: new Date().getTime(),
-        // The main clock's tick = the merge quantization for parallel legs: a
-        // Solana post can only land on a main-block boundary. 250ms (was 1000)
-        // trims up to 0.75s of latency to take advantage of Solana's speed.
-        // Immutable config (validated on boot) — only changes on a fresh chain.
-        // Trade-off: 4x more (mostly empty) NTP blocks; negligible on localnet.
+        // blockTimeMS = merge quantization: a Solana post lands only on a main-block
+        // boundary. 250ms (was 1000) trims up to 0.75s latency. Immutable — changes
+        // only on a fresh chain.
         blockTimeMS: 250,
       })
       .addNetwork({
@@ -63,17 +61,13 @@ export const config = new ConfigBuilder()
           name: "parallelSolanaRPC",
           type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
           startBlockHeight: 0,
-          // Fast-chain tuning (was pollingInterval 2000 / delayMs 2400 /
-          // confirmationDepth 32 → a ~15s post latency, ~85% of it the depth).
           pollingInterval: 250, // poll near Solana's slot time; localhost, no cost
           // delayMs is a HARD FLOOR on landing (post lands at blockTime+delayMs).
           // Must stay ≳ the real fetch lag (≈1 slot + poll) or the merge jitters.
           // 800ms sits safely above that while staying sub-second.
           delayMs: 800,
-          // confirmationDepth is reorg protection layered on top of the client's
-          // already-'confirmed' commitment. On single-node localnet there are no
-          // forks, so 1 is safe. Env-overridable: raise it on a public/forking
-          // chain (that is the ONLY faithfulness trade-off in this tuning).
+          // Reorg protection on top of 'confirmed'. localnet has no forks so 1 is
+          // safe; raise on a public/forking chain (the only faithfulness trade-off here).
           confirmationDepth: Number(process.env.SOLANA_CONFIRMATION_DEPTH ?? "1"),
           stepSize: 10, // catch-up batch only; no effect on steady-state latency
         }),
@@ -91,7 +85,6 @@ export const config = new ConfigBuilder()
   )
   .buildPrimitives((builder) =>
     builder
-      // Public, high-frequency leg: every post lands here.
       .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
         (_network, _deployments, _syncProtocol) => ({

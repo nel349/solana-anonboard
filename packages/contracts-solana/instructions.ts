@@ -26,7 +26,6 @@ export function findCounterAddress(
 
 // Account order must match process_instruction in programs/counter/src/lib.rs:
 //   authority (signer) · counter (PDA) · payer (signer, funds rent) · system program
-// `payer` is the batcher's fee-payer, so the user pays nothing — not even rent.
 function counterKeys(authority: PublicKey, counter: PublicKey, payer: PublicKey) {
   return [
     { pubkey: authority, isSigner: true, isWritable: false },
@@ -58,8 +57,7 @@ export function createIncrementInstruction(
 }
 
 // A post writes no account, so the only key it needs is the author as signer.
-// The transaction's fee-payer (the batcher) pays the fee; the author holds no
-// SOL. `body` is UTF-8 in the instruction data after the discriminant byte.
+// `body` is UTF-8 in the instruction data after the discriminant byte.
 export function createPostInstruction(
   author: PublicKey,
   body: string,

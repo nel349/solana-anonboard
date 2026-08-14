@@ -1,10 +1,7 @@
 // Prove the Midnight `join` circuit in the browser and derive a member's public
 // key from a membership secret.
 //
-// The membership secret (32 bytes) never leaves the browser: it is stored as
-// this contract's private state, and the `private$secret_key` witness resolves
-// it locally at proving time. proveJoin returns only an unbound tx hex, which
-// carries no secret — the operator pays + submits it (see operator service).
+// The 32-byte secret never leaves the browser; the returned unbound tx carries no secret, so the operator can pay+submit blind.
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { createUnprovenCallTx } from "@midnight-ntwrk/midnight-js-contracts";
@@ -55,10 +52,7 @@ export function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Prove join(badgePublicKey) with `secret` as the membership witness. Returns
-// the serialized unbound transaction as hex. Throws if the member is not on the
-// roster (the circuit asserts roster.member(public_key(sk))) or the nullifier is
-// already spent (one join per member).
+// Throws if the member isn't on the roster (circuit asserts it) or the nullifier is spent (one join per member).
 export async function proveJoin(
   badgePublicKey: Uint8Array,
   secret: Uint8Array,
@@ -102,11 +96,7 @@ export async function proveJoin(
   return toHex((unbound as { serialize(): Uint8Array }).serialize());
 }
 
-// Join through a CONNECTED wallet (Lace / 1AM), the standard Midnight dApp
-// pattern: the wallet proves (its own proving provider), pays fees, and submits.
-// The 32-byte membership secret stays app-side (held in an in-memory private
-// state provider) and is never handed to the wallet — only the finished,
-// witness-free transaction is. Returns nothing; poll the badge feed for the flip.
+// Wallet proves+pays+submits; the secret stays app-side (in-memory private state), only the witness-free tx goes to the wallet.
 export async function joinViaWallet(
   wallet: ConnectedWallet,
   badgePublicKey: Uint8Array,
@@ -115,11 +105,7 @@ export async function joinViaWallet(
 ): Promise<void> {
   setNetworkId(NETWORK.id);
 
-  // Keys the unproven-tx build needs come from the connected wallet — passed as
-  // the Bech32m strings the connector returns (midnight-js accepts these as-is;
-  // this matches the bboard reference). NOTE: this wallet-pays path currently
-  // fails at the node with InvalidDustSpendProof (170) when the wallet's dust
-  // state is stale for the chain. The app uses the operator-blind path instead.
+  // Wallet-pays path fails at the node with InvalidDustSpendProof(170) on stale dust — app uses the operator-blind path instead.
   const addrs = await wallet.getShieldedAddresses();
   const zkConfig = new FetchZKConfigProvider("/anonboard");
   const privateStateProvider = new InMemoryPrivateStateProvider();
@@ -148,8 +134,7 @@ export async function joinViaWallet(
     privateStateId: PRIVATE_STATE_ID,
   } as never);
 
-  // Prove via the wallet's proving provider (witness resolved locally during the
-  // unproven build above; the proof server never sees the secret).
+  // Witness was resolved locally in the unproven build; the proof server never sees the secret.
   const provingProvider = await wallet.getProvingProvider(
     (zkConfig as unknown as { asKeyMaterialProvider(): unknown }).asKeyMaterialProvider(),
   );
@@ -161,15 +146,12 @@ export async function joinViaWallet(
     (unproven as never as { private: { unprovenTx: unknown } }).private.unprovenTx as never,
   );
 
-  // The wallet pays fees, seals, binds, and submits. The join circuit has a
-  // fallible section (Map insert), so it must be balanced UNSEALED.
+  // join has a fallible section (Map insert), so it must be balanced UNSEALED.
   const unboundHex = toHex((unbound as { serialize(): Uint8Array }).serialize());
   const balanced = await wallet.balanceUnsealedTransaction(unboundHex);
   await wallet.submitTransaction(balanced.tx);
 }
 
-// Shared CompiledContract handle (assets flow via the zkConfigProvider; the
-// withCompiledFileAssets path is inert for the call/prove path).
 function buildCompiledContract() {
   return CompiledContract.make(
     "contract-anonboard",

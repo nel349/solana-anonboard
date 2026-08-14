@@ -10,13 +10,9 @@ import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type { FastifyInstance } from "fastify";
 
-// A read route must never crash the node. During the brief window between the
-// HTTP server accepting requests and the migrations creating the tables, a
-// query throws `relation "posts" does not exist` (42P01). The frontend polls
-// these routes on a loop, so an early poll used to take the whole sync process
-// down with it. Treat a missing relation (and any transient read error) as
-// "not ready yet" and return the empty/fallback shape; the next poll, after
-// migrations finish, returns real data.
+// Reads during the startup window before migrations create tables throw 42P01;
+// the frontend polls on a loop, so treat missing-relation/transient errors as
+// "not ready" and return empty.
 async function safeRead<T>(
   run: () => Promise<T[]>,
   label: string,
@@ -31,8 +27,7 @@ async function safeRead<T>(
   }
 }
 
-// Read-only HTTP routes (see README "API"). The DB is mutated only by the
-// STM, never here, which keeps replays deterministic.
+// DB is mutated only by the STM, never here — keeps replays deterministic.
 export const apiRouter: StartConfigApiRouter = async function (
   server: FastifyInstance,
   dbConn: Pool,
@@ -55,11 +50,8 @@ export const apiRouter: StartConfigApiRouter = async function (
     },
   );
 
-  // The two routes this project exists for.
-  //
-  // /api/badges — anonymous member badges mirrored from Midnight's ledger.
-  // /api/posts  — Solana posts, each tagged with whether the arbiter accepted
-  //               it. `accepted:false` rows are the proof the check is real.
+  // /api/badges: anon member badges mirrored from Midnight. /api/posts: Solana
+  // posts tagged accepted by the arbiter — accepted:false rows prove the check runs.
   server.get("/api/badges", async (_request, reply) => {
     const result = await safeRead(
       () => runPreparedQuery(getAllBadges.run(undefined, dbConn), "/api/badges"),

@@ -31,7 +31,6 @@ use solana_program::{
 
 solana_program::declare_id!("8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6");
 
-/// Discriminant byte for each instruction.
 pub const DISCRIMINANT_INCREMENT: u8 = 0;
 pub const DISCRIMINANT_RESET: u8 = 1;
 /// Post a message. Writes no account; the emitted log line is the record.
@@ -43,7 +42,6 @@ pub const COUNTER_LEN: usize = 8;
 /// Seed used for the counter PDA: `[b"counter", authority]`.
 pub const COUNTER_SEED: &[u8] = b"counter";
 
-/// Convenience helper for deriving the counter PDA on the client side.
 pub fn find_counter_address(program_id: &Pubkey, authority: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[COUNTER_SEED, authority.as_ref()], program_id)
 }
@@ -96,10 +94,7 @@ pub fn process_instruction<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Post is handled first: it writes no account, so it needs only the author
-    // as a signer. The author signs (free); whoever pays the transaction fee
-    // (the batcher) need not be the author, so posting costs the user nothing.
-    // Wire format consumed by the sync node: ANONBOARD_POST|<author>|<slot>|<body>.
+    // Wire format for the sync node: ANONBOARD_POST|<author>|<slot>|<body>.
     // Body is last so it may itself contain '|' without breaking the parse.
     if instruction_data.first().copied() == Some(DISCRIMINANT_POST) {
         let account_info_iter = &mut accounts.iter();
@@ -120,19 +115,16 @@ pub fn process_instruction<'a>(
     let payer_info = next_account_info(account_info_iter)?;
     let system_program_info = next_account_info(account_info_iter)?;
 
-    // Only the authority may change its own counter. The signature is free, so
-    // this stays feeless for the user.
+    // Only the authority may mutate its own counter.
     if !authority_info.is_signer {
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Verify the expected PDA.
     let (expected_pda, bump) = find_counter_address(program_id, authority_info.key);
     if counter_info.key != &expected_pda {
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Discriminant byte.
     let discriminant = instruction_data
         .first()
         .copied()
@@ -140,7 +132,6 @@ pub fn process_instruction<'a>(
 
     match discriminant {
         DISCRIMINANT_INCREMENT => {
-            // Lazily create the counter account if it doesn't exist yet.
             if counter_info.data_len() == 0 {
                 create_counter_account(
                     payer_info,
@@ -248,7 +239,6 @@ fn create_counter_account<'a>(
         &[signer_seeds],
     )?;
 
-    // Initialize to zero.
     write_u64(counter, 0)?;
     Ok(())
 }

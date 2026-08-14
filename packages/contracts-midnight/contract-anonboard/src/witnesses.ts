@@ -1,6 +1,4 @@
-// The secret key never leaves this process. Compact resolves the
-// `private$secret_key` witness locally at proving time; it is never an
-// argument to the circuit and never appears in the transaction.
+// Secret key stays local — never a circuit argument, never in the transaction.
 
 export type AnonboardPrivateState = {
   secretKey: Uint8Array;

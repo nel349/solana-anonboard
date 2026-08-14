@@ -46,9 +46,7 @@ import { OWNER_SECRET_KEY } from "../packages/contracts-midnight/owner-key.ts";
 
 const log = (s: string, m: string) => console.log(`\n[${s}] ${m}`);
 
-// A fresh roster member: a distinct secret, plus its public key computed with
-// the same hash the circuit uses (pad(32,"anonboard:pk:") ++ sk). The byte is
-// parameterised so each run uses an unspent member (join burns a nullifier).
+// MEMBER_BYTE picks an unspent member each run — join burns a one-shot nullifier.
 const MEMBER_SECRET_KEY = new Uint8Array(32);
 MEMBER_SECRET_KEY[31] = Number(process.env.MEMBER_BYTE ?? "7");
 function pad32(s: string): Uint8Array {
@@ -74,8 +72,7 @@ async function main() {
     proofServer: midnightNetworkConfig.proofServer,
   };
 
-  // The funded wallet. Its shielded/dust keys are the ONLY secrets party B
-  // uses to pay. They are unrelated to the roster witness.
+  // Party B's paying keys — unrelated to the roster witness.
   log("setup", "building funded wallet (this wallet only ever pays fees)…");
   const w = await buildWalletAndWaitForFunds(
     urls as never,
@@ -95,8 +92,7 @@ async function main() {
     CompiledContract.withCompiledFileAssets(zkConfigPath),
   );
 
-  // Admin step (owner authorises): put the fresh member on the roster. This is
-  // ordinary owner maintenance, not part of the blind flow.
+  // Owner maintenance: add the member to the roster — not part of the blind flow.
   const adminProviders = configureMidnightNodeProviders(
     w.wallet,
     w.zswapSecretKeys,
@@ -126,9 +122,6 @@ async function main() {
   }
 
   // ── PARTY A: has the member secret. Build + prove the join locally. ──
-  // Badge target: either an existing public key (BADGE_PUBKEY, e.g. the one the
-  // browser generated) or a fresh keypair we generate and persist. Join only
-  // needs the public key; the secret key is irrelevant to the join itself.
   let badgePubkeyBytes: Uint8Array;
   let badgeLabel: string;
   if (process.env.BADGE_PUBKEY) {
@@ -155,9 +148,8 @@ async function main() {
     zkConfigPath,
     w.unshieldedKeystore,
   );
-  // Store the MEMBER's secret as this contract's private state, so the
-  // `private$secret_key` witness returns it during proving. The level provider
-  // is scoped by contract address, so set that first.
+  // Member secret becomes this contract's private state (the private$secret_key
+  // witness reads it). setContractAddress first — the level provider is keyed by address.
   aProviders.privateStateProvider.setContractAddress(info.contractAddress);
   await aProviders.privateStateProvider.set(
     "anonboardMemberState",

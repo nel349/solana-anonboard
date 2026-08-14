@@ -1,12 +1,4 @@
-// Browser-side Midnight providers for proving the `join` circuit client-side.
-//
-// The SDK ships only Node providers (fs zk-config, LevelDB private state), so
-// the two that touch fs/Level are re-implemented here for the browser. The
-// other two (indexer public data, http-client proof) are already
-// browser-portable and reused as-is. See docs: only createUnprovenCallTx +
-// proveTx are on this path, and between them they dereference exactly:
-//   publicDataProvider, privateStateProvider.get, zkConfigProvider,
-//   walletProvider.getCoinPublicKey/getEncryptionPublicKey, proofProvider.
+// The SDK ships only Node providers; the two that touch fs/LevelDB are reimplemented here for the browser.
 import {
   ZKConfigProvider,
   createProverKey,
@@ -24,10 +16,7 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { ZswapSecretKeys } from "@midnight-ntwrk/ledger-v8";
 
-// ── zk-config over fetch() ──────────────────────────────────────────────────
-// Mirrors NodeZkConfigProvider but reads the artifacts over HTTP from public/
-// instead of the filesystem. Layout served by Vite:
-//   <baseUrl>/keys/<circuit>.prover  .verifier   and   <baseUrl>/zkir/<circuit>.bzkir
+// zk-config over HTTP from public/: <baseUrl>/keys/<c>.prover|.verifier, <baseUrl>/zkir/<c>.bzkir
 export class FetchZKConfigProvider<K extends string> extends ZKConfigProvider<K> {
   constructor(private readonly baseUrl: string) {
     super();
@@ -51,12 +40,7 @@ export class FetchZKConfigProvider<K extends string> extends ZKConfigProvider<K>
   }
 }
 
-// ── private state in memory ─────────────────────────────────────────────────
-// The `join` circuit's witness reads the 32-byte membership secret from private
-// state at proving time. In the browser it lives only for the session, in a
-// Map. Only get/set/setContractAddress are exercised by createUnprovenCallTx;
-// the export/import + signing-key surface throws so any accidental reliance is
-// loud rather than silent.
+// Session-only Map. get/set/setContractAddress are used; the export/import + signing-key surface throws so accidental reliance is loud.
 export class InMemoryPrivateStateProvider implements PrivateStateProvider {
   private readonly states = new Map<string, unknown>();
   private readonly signingKeys = new Map<string, unknown>();
@@ -102,12 +86,7 @@ export class InMemoryPrivateStateProvider implements PrivateStateProvider {
   }
 }
 
-// ── wallet adapter ──────────────────────────────────────────────────────────
-// createUnprovenCallTx needs a coin + encryption public key to shape the call
-// tx. Party A (the browser) never pays: the operator balances + submits, so
-// balanceTx/submitTx must never be called here and throw if they are. The keys
-// come from a fresh, throwaway zswap keypair — independent of the payer's, as
-// in scripts/blind-join.ts.
+// Browser never pays: operator balances + submits, so balanceTx/submitTx throw here. Keys are a throwaway zswap pair, not the payer's.
 export function makeBrowserWalletProvider(seed: Uint8Array): WalletProvider & MidnightProvider {
   const zswap = ZswapSecretKeys.fromSeed(seed);
   return {
@@ -134,7 +113,6 @@ export type BrowserProviderConfig = {
   walletSeed: Uint8Array; // throwaway zswap seed for tx shaping only
 };
 
-// Assemble the minimal provider set for createUnprovenCallTx('join') + proveTx.
 export function buildBrowserProviders(cfg: BrowserProviderConfig): MidnightProviders {
   const zkConfigProvider = new FetchZKConfigProvider(cfg.zkAssetsBaseUrl);
   const walletProvider = makeBrowserWalletProvider(cfg.walletSeed);

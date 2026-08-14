@@ -23,19 +23,13 @@ export async function chainReadyTest() {
       COUNTER_PROGRAM_ID,
       { encoding: "base64" },
     ]);
-    // Programs on Solana are stored as executable accounts. A loaded program
-    // has a non-null value with the `executable` flag set.
     return result?.value != null && result.value.executable === true;
   });
 
   await assert("Batcher wallet received the airdrop", async () => {
-    // Read from the well-known batcher keypair address ( see
-    // packages/batcher/keypair/batcher-wallet.json ).
+    // Batcher keypair address; see packages/batcher/keypair/batcher-wallet.json.
     const BALANCE_ADDR = "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW";
-    // Use "processed" commitment — solana-test-validator's finalized slot
-    // lags way behind on a fresh chain ( takes ~30 slots to finalize ),
-    // so the airdrops land in "processed" / "confirmed" state but not yet
-    // in "finalized" by the time the test runs.
+    // Use 'processed': finalized lags ~30 slots on a fresh validator, so airdrops aren't final yet.
     const result = await rpc("getBalance", [
       BALANCE_ADDR,
       { commitment: "processed" },

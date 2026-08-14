@@ -12,7 +12,6 @@ const BUILD_DIR = path.join(ROOT, "build");
 const OUT_SO = path.join(BUILD_DIR, "counter.so");
 
 function resolveCargoBuildSbf(): string {
-  // 1. Check the engine's vendored binaries (co-iteration with the monorepo).
   const candidates = [
     path.join(
       ROOT,
@@ -26,7 +25,6 @@ function resolveCargoBuildSbf(): string {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  // 2. Fall back to whatever is on PATH.
   return "cargo-build-sbf";
 }
 
@@ -41,12 +39,8 @@ function main() {
   fs.mkdirSync(BUILD_DIR, { recursive: true });
 
   const bin = resolveCargoBuildSbf();
-  // platform-tools v1.52 is the first whose bundled cargo (1.85+) supports
-  // edition2024 deps. Still pinned: cargo-build-sbf from @effectstream/solana-node
-  // (Agave 3.0.14) bundles v1.51 — one short — so relying on its default would
-  // regress the build. Agave 4.1.x does bundle v1.54, but 3.1+ can't run in
-  // Docker at all (see the io_uring note in solana-node/index.js), so the newer
-  // toolchain isn't available to us.
+  // v1.52 is the first platform-tools whose cargo (1.85+) supports edition2024
+  // deps; the vendored default (Agave 3.0.14's v1.51) is one short.
   const toolsVersion = process.env.SOLANA_PLATFORM_TOOLS_VERSION ?? "v1.52";
   const args = [
     "--manifest-path",
@@ -70,11 +64,8 @@ function main() {
   });
 
   if (result.error != null || result.status == null) {
-    // spawnSync couldn't run it at all (status is undefined, not a number).
-    // Almost always: the vendored toolchain isn't on disk yet. It lives in
-    // @effectstream/solana-node's vendor/ dir, which is only populated when the
-    // validator binary downloads — i.e. when chain:start runs, AFTER this. CI
-    // hit exactly this and reported only "exited with status undefined".
+    // status undefined (not a number) = spawn failed, almost always the vendored
+    // toolchain isn't downloaded yet (populated by chain:start, which runs after this).
     console.error(
       `[contracts-solana] could not execute ${bin}\n` +
         `  ${result.error ?? "spawn failed"}\n` +
@@ -93,8 +84,6 @@ function main() {
     process.exit(result.status);
   }
 
-  // The output is `<program_name>.so`. cargo-build-sbf names it after the
-  // crate's lib name, which is `counter` here.
   const built = path.join(BUILD_DIR, "counter.so");
   if (!fs.existsSync(built)) {
     console.error(

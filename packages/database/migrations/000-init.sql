@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS counter_state (
   authority TEXT PRIMARY KEY,
   value BIGINT NOT NULL DEFAULT 0,
-  slot BIGINT NOT NULL,           -- Solana slot the value was last seen at
+  slot BIGINT NOT NULL,           -- Solana slot last seen
   block_height INTEGER NOT NULL,  -- engine block height, for ordering
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

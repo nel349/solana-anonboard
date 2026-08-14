@@ -11,16 +11,9 @@ import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { migrationTable } from "@solana-starter/database";
 
-// Create the app schema (posts/badges/counter_*) BEFORE block processing.
-//
-// The framework applies our `migrations` as USER migrations, which only run when
-// the sync PROCESSES main block 1 (getMigrationsForBlockHeight defaults a
-// missing blockHeight to 1). On boot the Solana leg first catches up a burst of
-// slots before block 1 is assembled, and a query against posts/badges in that
-// window rejects with 42P01 ("relation does not exist") and kills the critical
-// sync process. Creating the schema up front (the SQL is idempotent —
-// CREATE TABLE IF NOT EXISTS) closes that window: the tables exist before
-// anything can read them, and the later block-1 user migration is a no-op.
+// User migrations run only when main block 1 is processed, but the Solana leg
+// catches up slots first — a query then hits 42P01 and kills the sync. Create the
+// idempotent schema up front to close that window.
 // PGLite allows a single connection, so we release the pool before start().
 async function ensureAppSchema(): Promise<void> {
   const pool = getConnection();
@@ -34,8 +27,7 @@ async function ensureAppSchema(): Promise<void> {
   }
 }
 
-// Surface otherwise-silent fatal errors. The runtime swallows unhandled
-// rejections, so the sync process was exiting code 1 with no stack trace.
+// Runtime swallows unhandled rejections (silent exit 1) — surface them.
 process.on("unhandledRejection", (e) => {
   console.error("[sync] UNHANDLED REJECTION:", e);
 });

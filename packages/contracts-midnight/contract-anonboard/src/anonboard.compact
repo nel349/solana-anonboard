@@ -4,11 +4,10 @@ export {add_to_roster, join}
 
 import CompactStandardLibrary;
 
-// Who runs the board. Set once, at deploy.
+// Set once, at deploy.
 export ledger owner: Bytes<32>;
 
-// Who is ALLOWED to join. Public on purpose: "norm is a contributor" is not
-// the secret. What he posts is.
+// Public on purpose: being a member isn't the secret; what you post is.
 export ledger roster: Map<Bytes<32>, Boolean>;
 
 // Anonymous member badges: fresh Solana public keys, each bound to exactly one
@@ -35,9 +34,8 @@ circuit add_to_roster(member: Bytes<32>): [] {
   roster.insert(disclose(member), true);
 }
 
-// The only circuit that matters. Proves "I am on the roster" and binds a
-// throwaway Solana key to that fact, disclosing the key and nothing else.
-// After this runs, the badge is a verified member with no identity attached.
+// Binds a throwaway Solana key to roster membership, disclosing the key and
+// nothing else — no identity attached.
 circuit join(solana_pubkey: Bytes<32>): [] {
   const sk = private$secret_key();
   assert(roster.member(public_key(sk)), "not on the roster");

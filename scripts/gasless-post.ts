@@ -45,12 +45,12 @@ async function main() {
 
   const { blockhash } = await conn.getLatestBlockhash("confirmed");
   const tx = new Transaction();
-  tx.feePayer = SPONSOR; // the batcher pays the fee, not the author
+  tx.feePayer = SPONSOR;
   tx.recentBlockhash = blockhash;
   tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
   tx.add(createPostInstruction(poster.publicKey, BODY));
 
-  tx.partialSign(poster); // author signs only its own authority (free)
+  tx.partialSign(poster);
   const base64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
   const userSig = tx.signatures.find((s) =>
     s.publicKey.equals(poster.publicKey),
@@ -69,9 +69,7 @@ async function main() {
         signature: userSig ? bs58.encode(userSig) : "",
         timestamp: Date.now().toString(),
       },
-      // wait-receipt: confirm the tx landed on-chain (sponsor paid) without
-      // blocking on EffectStream sync. The arbiter/accepted verdict is verified
-      // separately once the sync mirrors the post.
+      // wait-receipt: confirm it landed on-chain without blocking on EffectStream sync (verdict checked separately).
       confirmationLevel: "wait-receipt",
     }),
   });

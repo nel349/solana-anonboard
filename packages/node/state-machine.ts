@@ -55,12 +55,8 @@ stm.addStateTransition("midnight-badges", function* (data) {
   }
 });
 
-// ── Public leg plus the arbiter ──
-//
-// This is the whole project in one function. A post observed on Solana is
-// only counted if its signer holds a badge issued on Midnight. No badge, no
-// post. The link between the chains is a proof result, not a value the user
-// handed to both sides.
+// Arbiter: a post is counted only if its signer holds a Midnight badge. The
+// cross-chain link is a proof result, not a value the user handed to both sides.
 stm.addStateTransition("solana-post", function* (data) {
   const { parsedInput, blockHeight } = data;
   const { slot, programId, logMessages } = parsedInput as any;
@@ -87,9 +83,8 @@ stm.addStateTransition("solana-post", function* (data) {
   }
 });
 
-// Reuses the counter program's log format: PREFIX|<authority>|<value>|<slot>.
-// `value` stands in for post content in this PoC; a real board program would
-// carry the message bytes.
+// PREFIX|<author>|<slot>|<body> — reuses the counter program's log format;
+// body stands in for post content in this PoC.
 function parsePostLog(raw: string): { author: string; body: string } | null {
   const line = raw.startsWith("Program log: ")
     ? raw.slice("Program log: ".length)

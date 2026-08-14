@@ -1,11 +1,4 @@
-// Midnight wallet connection via the dApp-connector-api (v4).
-//
-// Any wallet the user has installed injects an InitialAPI under
-// window.midnight[<key>]: { rdns, name, icon, apiVersion, connect(networkId) }.
-// We detect every 4.x wallet (Lace, 1AM, …), let the user pick, and connect.
-// connect() triggers the wallet's own approval popup — that is the identity
-// prompt. A connected wallet then proves, pays, and submits the join itself
-// (see joinViaWallet in ./join.ts).
+// Wallets inject window.midnight[<key>]: { rdns, name, icon, apiVersion, connect(networkId) }.
 
 export type DetectedWallet = {
   key: string; // the window.midnight key
@@ -15,8 +8,7 @@ export type DetectedWallet = {
   apiVersion: string;
 };
 
-// The subset of the connected API we use. Kept local so we don't hard-depend on
-// the connector's type package at build time.
+// Local subset of the connected API so we don't build-depend on the connector's type package.
 export type ConnectedWallet = {
   getShieldedAddresses(): Promise<{
     shieldedAddress: string;
@@ -60,8 +52,7 @@ function isConnectorWallet(w: unknown): w is InitialAPI {
   );
 }
 
-// Detect installed connector wallets. Filters to major version 4 (the version
-// this app targets); other majors have a different method surface.
+// v4 connector wallets only; other majors have a different method surface.
 export function detectMidnightWallets(): DetectedWallet[] {
   const injected = (window as unknown as { midnight?: Record<string, unknown> }).midnight ?? {};
   const out: DetectedWallet[] = [];
@@ -80,8 +71,6 @@ export function detectMidnightWallets(): DetectedWallet[] {
   return out;
 }
 
-// Connect to a detected wallet. Triggers the wallet's approval popup. Verifies
-// the wallet is on the expected network before handing it back.
 export async function connectMidnightWallet(
   key: string,
   networkId: string,

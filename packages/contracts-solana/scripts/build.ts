@@ -33,7 +33,6 @@ function buildProgramIfMissing() {
       "[contracts-solana] SKIP_SOLANA_BUILD=1 but build/counter.so is absent — compiling anyway",
     );
   }
-  // Always rebuild to keep the .so fresh; the program is tiny (~ms).
   const result = spawnSync(
     process.execPath,
     [path.join(PKG_DIR, "build-program.ts")],

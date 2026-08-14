@@ -1,16 +1,5 @@
-/**
- * Integration test runner.
- *
- * Phases:
- *   A. Infrastructure: validator up, counter program loaded, batcher funded
- *   B. Round-trip: submit a counter increment through the batcher, verify
- *      the STM processed it ( DB rows present ) and the HTTP API serves it.
- *
- * Tests run against the local orchestrator config in start.test.ts. They do
- * NOT exercise the frontend ( Phase C ) — Phantom can't be driven headlessly
- * without a real browser, and the batcher round-trip is fully covered by
- * Phase B using a raw Keypair instead.
- */
+// Phase C (frontend) isn't covered — Phantom can't run headless; the batcher
+// round-trip covers it via a raw Keypair.
 import {
   anyError,
   printSummary,
@@ -49,7 +38,6 @@ async function stopInfrastructure(): Promise<void> {
       method: "POST",
     });
   } catch {
-    /* already down */
   }
   await delay(2000);
   orchestratorProc?.kill();
@@ -62,7 +50,6 @@ async function waitForOrchestrator(): Promise<void> {
       const res = await fetch(`http://localhost:${ORCHESTRATOR_PORT}/health`);
       if (res.ok) return;
     } catch {
-      /* not ready */
     }
     await delay(500);
   }
@@ -88,7 +75,6 @@ async function waitForProcess(
         }
       }
     } catch {
-      /* not ready */
     }
     await delay(500);
   }
@@ -107,16 +93,13 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
         if (data.status === "ok") return;
       }
     } catch {
-      /* not ready */
     }
     await delay(500);
   }
   throw new Error("Sync node health check failed");
 }
 
-// waitForProcess("batcher") only confirms the process is running, not that its
-// HTTP server has bound :3334. Poll the port until it actually accepts a
-// connection so Phase B never races ahead of the batcher.
+// Process 'running' != HTTP port bound; poll :3334 so Phase B doesn't race the batcher.
 async function waitForBatcher(timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -124,7 +107,6 @@ async function waitForBatcher(timeoutMs = 60_000): Promise<void> {
       await fetch("http://localhost:3334/documentation");
       return; // any HTTP response means the port is bound
     } catch {
-      /* not listening yet */
     }
     await delay(500);
   }
@@ -178,9 +160,7 @@ async function test() {
 
     printSummary();
   } catch (e) {
-    // Infrastructure that never came up throws outside any assertion, leaving
-    // anyError() false once an earlier phase has passed. Track it explicitly so
-    // a boot failure can't exit 0 with later phases silently skipped.
+    // Track boot failures explicitly so infra that never came up can't exit 0.
     infraError = true;
     printSummary();
     console.error(e);

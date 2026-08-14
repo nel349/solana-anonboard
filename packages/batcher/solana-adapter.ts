@@ -5,39 +5,20 @@ import path from "node:path";
 import bs58 from "bs58";
 
 /**
- * Build a `SolanaAdapter` (fee-payer sponsor) for the dev environment.
+ * Build a `SolanaAdapter` (fee-payer sponsor) for the dev environment: the
+ * sponsor co-signs a user-partial tx so the user pays 0 SOL.
  *
- * The adapter holds the sponsor (fee-payer) keypair. The user partially signs
- * a transaction whose fee payer is the batcher's sponsor key and whose every
- * instruction targets `targetProgramId`; the batcher validates it, co-signs as
- * fee payer, and submits — the user pays 0 SOL.
- *
- * The counter program creates a PDA funded by the sponsor, so this adapter
- * enables `allowSponsorAsInstructionAccount` (the sponsor legitimately appears
- * as the rent payer). Per-program scoping (`targetProgramId`) still confines
- * the sponsor to the counter program.
- *
- * For dev, the keypair lives at
- *   packages/batcher/keypair/batcher-wallet.json
- * and is committed. The orchestrator airdrops SOL to its address on boot
- * ( see packages/node/airdrop.ts ).
- *
- * For mainnet, source the keypair from a secret manager and never commit
- * the file.
+ * The dev keypair is committed and its secret is public — for mainnet, load it
+ * from a secret manager and never commit the file.
  */
 export interface SolanaAdapterEnv {
   rpcUrl: string;
   /** Path to a Solana keypair JSON file ( array of 64 bytes ). */
   batcherKeypairPath: string;
   syncProtocolName: string;
-  /** The single program this batcher sponsors (e.g. the counter program). */
   targetProgramId: string;
-  /** Max transactions submitted per batch cycle. */
   maxBatchSize?: number;
-  /**
-   * True for programs that need the sponsor to fund rent (PDA creation), like
-   * the counter program. False for pure transfer/log programs (e.g. SPL Memo).
-   */
+  /** Set for programs where the sponsor funds PDA rent (counter); off for pure log/transfer programs. */
   allowSponsorAsInstructionAccount?: boolean;
 }
 
@@ -51,7 +32,6 @@ const PUBLIC_DEV_KEYPAIRS = new Set([
   "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW", // keypair/batcher-wallet.json
 ]);
 
-/** True for RPC endpoints that can only be a developer's own machine. */
 function isLoopbackRpc(rpcUrl: string): boolean {
   try {
     const { hostname } = new URL(rpcUrl);

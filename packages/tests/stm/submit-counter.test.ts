@@ -40,10 +40,8 @@ async function sendIncrementFromKeypair(
   tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
   tx.add(ix);
 
-  // User partially signs; the fee-payer (batcher sponsor) has NOT signed yet —
-  // it adds its signature on its side. The base64 wire format is what the
-  // fee-payer-sponsor SolanaAdapter expects (it verifies the user's tx
-  // signature directly via tx.verifySignatures, not a canonical message).
+  // User partial-signs; the fee-payer signs on its side. Base64 wire format:
+  // the sponsor verifies the user's tx signature directly, not a canonical message.
   tx.partialSign(user);
   const base64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
   const userSig = tx.signatures.find((s) => s.publicKey.equals(authority))?.signature;
@@ -79,8 +77,7 @@ export async function submitCounterTest(
   const userAddr = user.publicKey.toBase58();
   console.log(`  [info] submitting as fresh keypair ${userAddr.slice(0, 8)}…`);
 
-  // No airdrop: the user is a brand-new keypair with 0 SOL. The batcher funds
-  // both fees and the PDA rent, so the whole flow must work feeless.
+  // No airdrop: fresh 0-SOL keypair; the batcher funds fees + PDA rent, so the flow must be feeless.
   await assert("fresh user starts with zero SOL", async () => {
     const bal = await rpc("getBalance", [userAddr]);
     return (bal?.value ?? 0) === 0;

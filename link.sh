@@ -1,7 +1,6 @@
 #!/bin/bash
-# Link local @effectstream packages from the monorepo into this template.
-# Usage: ./link.sh
-# Run this instead of `bun install` when developing inside the monorepo.
+# Link local @effectstream packages from the monorepo — run instead of
+# `bun install` when developing in-monorepo.
 
 set -e
 
@@ -28,12 +27,11 @@ link_pkg() {
     return
   fi
 
-  # 1. Top-level symlink in node_modules/@scope/name
   mkdir -p "$NM/@$scope"
   rm -rf "$NM/@$scope/$short_name"
   ln -sf "$local_path" "$NM/@$scope/$short_name"
 
-  # 2. Redirect .bun/ cached copies so Bun's internal resolver also uses monorepo source
+  # Redirect .bun/ cached copies so Bun's internal resolver also uses monorepo source
   for bun_dir in "$NM/.bun/@${scope}+${short_name}@"*/; do
     [ -d "$bun_dir" ] || continue
     local inner="$bun_dir/node_modules/@$scope/$short_name"
@@ -46,7 +44,6 @@ link_pkg() {
   echo "  LINK @$scope/$short_name"
 }
 
-# Workspace packages
 echo "Linking workspace packages..."
 link_pkg "solana-starter" "node"              "$SCRIPT_DIR/packages/node"
 link_pkg "solana-starter" "contracts-solana"  "$SCRIPT_DIR/packages/contracts-solana"
@@ -73,11 +70,8 @@ link_pkg "effectstream" "event-client"             "$P/effectstream-sdk/events"
 link_pkg "effectstream" "batcher-sdk"              "$P/batcher"
 link_pkg "effectstream" "orchestrator"             "$P/build-tools/orchestrator"
 
-# @effectstream/solana-node is not published to npm, so bun install can't
-# fetch it. Provision it directly into the node_modules of the packages that
-# need it, mirroring the e2e layout: the package dir + the .bin symlink.
-#   - packages/node            runs the chain:start script (solana-test-validator)
-#   - packages/contracts-solana runs build-program.ts (cargo-build-sbf)
+# @effectstream/solana-node isn't on npm — provision it manually into
+# packages/node + packages/contracts-solana (package dir + .bin symlink).
 echo ""
 echo "Linking @effectstream/solana-node (unpublished; provides solana binaries)..."
 SOLANA_NODE_SRC="$P/binaries/solana-node"

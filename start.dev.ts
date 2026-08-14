@@ -10,13 +10,9 @@ const root = import.meta.dirname!;
 // config.dev.ts calls readMidnightContract() at import time.
 const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 
-// The validator must wait for the counter build: chain-start.ts needs
-// counter.so on disk to pass `--bpf-program`.
-// `cwd`, not `resolveFrom`: resolveFrom goes through
-// require.resolve(pkg, { paths }), which cannot see this template's own
-// workspace packages once @effectstream/orchestrator is installed from npm
-// rather than symlinked by link.sh — they are not linked into node_modules.
-// Every other template passes an explicit path for the same reason.
+// Validator waits on the counter build (needs build/counter.so for `--bpf-program`).
+// cwd, not resolveFrom: require.resolve can't see this template's workspace
+// packages once @effectstream/orchestrator is an installed npm dep.
 const solanaProcesses = launchSolana("@solana-starter/node", {
   cwd: path.join(root, "packages/node"),
 });
@@ -87,9 +83,7 @@ export default {
       ],
     },
 
-    // Operator: the Midnight owner + fee-payer. Registers members on the roster
-    // (add_to_roster) and pays + submits browser-proven join txs. Needs the
-    // contract deployed (it reads the address and builds the owner wallet).
+    // dependsOn deploy: reads the contract address + builds the owner wallet.
     {
       name: "operator",
       description: "Midnight operator (roster registrar + join fee-payer)",
@@ -101,7 +95,6 @@ export default {
       dependsOn: [...midnightDeps],
     },
 
-    // Fund the batcher fee-payer wallet so it can pay gas.
     {
       name: "airdrop-batcher",
       description: "Airdrop SOL to batcher wallet",
@@ -131,11 +124,9 @@ export default {
       type: "system-dependency",
       link: "http://localhost:5173",
       stopProcessAtPort: [5173],
-      // Must wait for the Midnight deploy, not just the batcher: the frontend's
-      // predev `copy-zk` reads the compiled join keys and the app imports the
-      // deployed contract address. Depending only on the batcher let the
-      // frontend boot first and copy empty/half-written keys (proof server then
-      // 400s). midnightDeps = contract deploy, which is after the compile.
+      // Wait on the Midnight deploy, not just the batcher: predev copy-zk reads
+      // the compiled join keys + deployed address; booting first copies
+      // half-written keys (proof server then 400s).
       dependsOn: ["batcher", ...midnightDeps],
     },
   ],

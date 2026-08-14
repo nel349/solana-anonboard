@@ -1,13 +1,5 @@
-// Copy the compiled ZK artifacts the browser needs to prove the `join` circuit
-// into public/, where Vite serves them verbatim. The FetchZKConfigProvider
-// (src/midnight/providers.ts) fetches them as raw bytes:
-//   public/anonboard/keys/join.prover
-//   public/anonboard/keys/join.verifier
-//   public/anonboard/zkir/join.bzkir
+// Copy the join circuit's ZK artifacts into public/ for Vite to serve.
 // The proof server needs the EXACT bytes, so copy — never transform/compress.
-//
-// Run via `bun run copy-zk` (also wired as a predev/prebuild step by hand for
-// now). Re-run after recompiling the contract.
 import { copyFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
@@ -22,8 +14,7 @@ const MANAGED = path.resolve(
 );
 const OUT = path.resolve(import.meta.dirname!, "..", "public", "anonboard");
 
-// Only the `join` circuit is proved in the browser. add_to_roster is an
-// owner/operator action and never runs client-side.
+// Only join is proved client-side; add_to_roster is operator-only.
 const ASSETS: Array<[string, string]> = [
   ["keys/join.prover", "keys/join.prover"],
   ["keys/join.verifier", "keys/join.verifier"],

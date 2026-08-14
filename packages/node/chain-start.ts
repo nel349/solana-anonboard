@@ -1,21 +1,7 @@
-// Local-dev launcher for solana-test-validator (vendored via
-// @effectstream/solana-node). Loads the compiled counter program at the fixed
-// COUNTER_PROGRAM_ID and resets the ledger each boot (SOLANA_RESET).
-// For production, deploy with `solana program deploy` instead.
-//
-// Everything mechanical — download, SHA-256 verification, ledger setup, the
-// loopback bind, macOS AppleDouble handling, output capture on failure — lives in
-// @effectstream/solana-node's `run()`. This file used to spawn the binary
-// directly to pass --bpf-program, which duplicated all of that AND skipped the
-// checksum verification.
-//
-// Known limitation: run() exposes no --limit-ledger-size, so after
-// ~45 min the validator prunes blocks the Solana sync still needs and the sync
-// wedges. A direct-spawn variant that passes a large --limit-ledger-size fixes
-// the stall but shifts boot timing enough to race the DB migrations (sync
-// crashes on "relation posts does not exist"). The durable fix is to add a
-// --limit-ledger-size passthrough to run() upstream (preserving its timing),
-// not to reimplement the launch here.
+// Local-dev launcher for solana-test-validator (vendored via @effectstream/solana-node).
+// Delegates to run() rather than direct-spawning — direct spawn skips run()'s SHA-256 verify.
+// Known limit: run() has no --limit-ledger-size, so ~45min in the validator prunes blocks
+// the sync still needs and wedges. Durable fix is a passthrough upstream.
 import { run } from "@effectstream/solana-node";
 import fs from "node:fs";
 import path from "node:path";

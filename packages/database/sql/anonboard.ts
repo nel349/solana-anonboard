@@ -90,10 +90,8 @@ export const getAllPosts = prepare<Record<string, never>, IGetPostsResult>(
 FROM posts ORDER BY id DESC`,
 );
 
-// Ordering: Midnight sync catches up from block 1 while Solana is
-// already current, so a post can be folded and rejected before its badge
-// arrives. When a badge lands, backfill any earlier posts by that author that
-// were rejected only for lack of a badge. Idempotent and replay-safe.
+// Ordering race: Midnight syncs from block 1 while Solana is current, so a post
+// can be rejected before its badge lands. Backfill those on badge arrival; idempotent.
 export interface IAcceptPostsForAuthorParams {
   author: string;
 }

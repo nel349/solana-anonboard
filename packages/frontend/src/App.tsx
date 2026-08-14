@@ -24,12 +24,9 @@ import {
   type ConnectedWallet,
   type DetectedWallet,
 } from "./midnight/wallet.ts";
-// The deployed contract address, written by the Midnight deploy step. It changes
-// on every fresh deploy; importing the JSON means Vite HMR picks up the new
-// address automatically after a stack restart.
+// Rewritten on every deploy; importing the JSON lets HMR pick up the new address.
 import contractInfo from "../../contracts-midnight/contract-anonboard.undeployed.json";
 
-// ── Stack endpoints (the running `bun run dev` dev stack) ───────────────────
 const RPC = DEV_RPC_URL;
 const BATCHER_URL = DEV_BATCHER_URL;
 const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
@@ -38,18 +35,13 @@ const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
 const ADDRESS_TYPE_SOLANA = 9; // AddressType.SOLANA
 const MAX_BODY = 280; // bounded by the Solana tx size (see DECISIONS.md D9)
 
-// Every post is one Solana transaction with two signatures (the badge author +
-// the sponsor fee-payer). Solana's base fee is 5,000 lamports per signature and
-// we attach no priority fee, so the sponsor pays exactly this per post. The
-// author pays nothing. This is the real number, not a rounded "0".
+// Sponsor pays 5,000 lamports/signature × 2 sigs per post; author pays nothing.
 const LAMPORTS_PER_SIGNATURE = 5000;
 const SIGNATURES_PER_POST = 2; // badge author + sponsor fee-payer
 const COST_PER_POST_LAMPORTS = LAMPORTS_PER_SIGNATURE * SIGNATURES_PER_POST;
 const COST_PER_POST_SOL = COST_PER_POST_LAMPORTS / LAMPORTS_PER_SOL;
 
-// The badge is a fresh keypair generated in the browser and kept in
-// localStorage. It is the anonymous session identity: unlinkable to the member
-// on-chain (see DECISIONS.md D4). Not the user's real wallet, by design.
+// Anonymous session identity, unlinkable to the on-chain member (DECISIONS.md D4). Not the user's wallet.
 const BADGE_STORAGE_KEY = "anonboard.badge.v1";
 
 // The membership secret (32 bytes) is the roster identity, separate from the
@@ -69,9 +61,7 @@ function loadOrCreateSecretForWallet(coinPublicKey: string): Uint8Array {
   if (saved) {
     try {
       return Uint8Array.from(JSON.parse(saved));
-    } catch {
-      /* fall through and regenerate */
-    }
+    } catch {}
   }
   const sk = crypto.getRandomValues(new Uint8Array(32));
   localStorage.setItem(key, JSON.stringify(Array.from(sk)));
@@ -83,19 +73,13 @@ function loadOrCreateBadge(): Keypair {
   if (saved) {
     try {
       return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(saved)));
-    } catch {
-      /* fall through and regenerate */
-    }
+    } catch {}
   }
   const kp = Keypair.generate();
   localStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(Array.from(kp.secretKey)));
   return kp;
 }
 
-// One vocabulary for the whole app. A badge is a `member` (it has joined on
-// Midnight) or `not a member` (it has not). A post inherits the same label: it
-// counts only if its badge is a member. No "verified" / "midnight badge" /
-// "roster" synonyms in the UI — one word, everywhere.
 function shortAddr(a: string): string {
   return `${a.slice(0, 4)}…${a.slice(-4)}`;
 }
@@ -113,7 +97,7 @@ export function App() {
   const badgeRef = useRef<Keypair>(loadOrCreateBadge());
   const badge = badgeRef.current;
   const badgePk = badge.publicKey.toBase58();
-  const secretRef = useRef<Uint8Array | null>(null); // set on wallet connect
+  const secretRef = useRef<Uint8Array | null>(null);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [isMember, setIsMember] = useState<boolean | null>(null);
@@ -127,14 +111,9 @@ export function App() {
     kind: "info",
   });
   const [busy, setBusy] = useState(false);
-  // Optimistic posts: shown the instant you click Post, before the ~2s
-  // Solana-confirm + rollup round-trip. Each is dropped once the real row
-  // (same body + this badge) shows up in the feed. Makes posting feel instant
-  // on a fast chain; the truth still arrives from the sync.
+  // Optimistic rows; each dropped once its real row (same body+badge) arrives from the sync.
   const [optimistic, setOptimistic] = useState<{ body: string; ts: number }[]>([]);
 
-  // Poll the node for the feed and this badge's membership. The board is a
-  // public read: no wallet needed to look.
   useEffect(() => {
     let alive = true;
     const tick = async () => {
@@ -146,13 +125,10 @@ export function App() {
         const realPosts: Post[] = pJson.posts ?? [];
         setPosts(realPosts);
         setIsMember((bJson.badges ?? []).some((b: { pubkey: string }) => b.pubkey === badgePk));
-        // Reconcile: drop any optimistic post the sync has now materialized.
         setOptimistic((prev) =>
           prev.filter((o) => !realPosts.some((p) => p.body === o.body && p.author === badgePk)),
         );
-      } catch {
-        /* stack not up yet; keep polling */
-      }
+      } catch {}
     };
     tick();
     // Poll the feed every 500ms so the board reflects the sub-second sync
@@ -165,8 +141,6 @@ export function App() {
     };
   }, [badgePk]);
 
-  // Poll the sponsor's on-chain balance so the funding is visible, not implied.
-  // This is a plain public RPC read of the fee-payer account.
   useEffect(() => {
     let alive = true;
     const conn = new Connection(RPC, "confirmed");
@@ -174,9 +148,7 @@ export function App() {
       try {
         const lamports = await conn.getBalance(SPONSOR, "confirmed");
         if (alive) setSponsorSol(lamports / LAMPORTS_PER_SOL);
-      } catch {
-        /* stack not up yet; keep polling */
-      }
+      } catch {}
     };
     tick();
     const h = setInterval(tick, 5000);
@@ -186,9 +158,6 @@ export function App() {
     };
   }, []);
 
-  // Connect a Midnight wallet. Detects every installed connector wallet (Lace,
-  // 1AM, …). One → connect it; several → let the user pick. connect() triggers
-  // the wallet's own approval popup — the identity prompt.
   function connect() {
     const found = detectMidnightWallets();
     if (found.length === 0) {
@@ -199,7 +168,7 @@ export function App() {
       void doConnect(found[0]);
       return;
     }
-    setPickList(found); // show a picker
+    setPickList(found);
   }
 
   async function doConnect(picked: DetectedWallet) {
@@ -220,9 +189,7 @@ export function App() {
     }
   }
 
-  // Join: an organizer (operator) enrolls your wallet-derived member key on the
-  // roster, then your wallet proves membership, pays, and submits. Once the sync
-  // mirrors the badge, this badge flips to member.
+  // Operator must add the member to the roster BEFORE the browser can prove join — the circuit asserts membership.
   async function join() {
     if (!wallet || !secretRef.current) {
       setStatus({ msg: "Connect your wallet first.", kind: "err" });
@@ -260,7 +227,6 @@ export function App() {
   async function post() {
     const body = draft.trim();
     if (!body) return;
-    // Show it immediately (optimistic) and clear the box — feels instant.
     const ts = Date.now();
     setOptimistic((prev) => [{ body, ts }, ...prev]);
     setDraft("");
@@ -270,7 +236,7 @@ export function App() {
       const conn = new Connection(RPC, "confirmed");
       const { blockhash } = await conn.getLatestBlockhash("confirmed");
       const tx = new Transaction();
-      tx.feePayer = SPONSOR; // the batcher pays, not the badge
+      tx.feePayer = SPONSOR;
       tx.recentBlockhash = blockhash;
       tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
       tx.add(createPostInstruction(badge.publicKey, body));
@@ -296,7 +262,7 @@ export function App() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setOptimistic((prev) => prev.filter((o) => o.ts !== ts)); // roll back
+        setOptimistic((prev) => prev.filter((o) => o.ts !== ts));
         setStatus({ msg: `Batcher rejected: ${j.message ?? res.status}`, kind: "err" });
       } else {
         setStatus({
@@ -307,7 +273,7 @@ export function App() {
         });
       }
     } catch (e) {
-      setOptimistic((prev) => prev.filter((o) => o.ts !== ts)); // roll back
+      setOptimistic((prev) => prev.filter((o) => o.ts !== ts));
       setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
     } finally {
       setBusy(false);
@@ -324,7 +290,6 @@ export function App() {
         </p>
       </header>
 
-      {/* Your identity: one badge, one clear state. */}
       <section className="me">
         <div>
           <span className="label">Your anonymous badge</span>
@@ -341,7 +306,6 @@ export function App() {
         </div>
       </section>
 
-      {/* Transparency panel: the mechanics the app used to hide. */}
       <section className="stats">
         <div className="stat">
           <span className="k">Sponsor account</span>

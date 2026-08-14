@@ -1,14 +1,6 @@
-// The demonstration this whole PoC exists to make.
-//
-//   1. Midnight: the owner adds itself to the roster, then calls `join` with a
-//      freshly generated Solana public key. That mints an anonymous badge.
-//      Nothing on chain records WHICH roster member the badge belongs to.
-//   2. Solana: two posts. One signed by the badge key, one signed by a random
-//      key that never joined.
-//   3. The EffectStream state machine folds both chains and decides. The badge
-//      holder's post is accepted; the stranger's is rejected.
-//
-// Run with the stack up: bun run scripts/demo.ts
+// Demo: owner joins the roster and mints an anonymous badge (chain stores the
+// key, not the member), then posts twice on Solana — badge holder accepted,
+// stranger rejected. Run: bun run scripts/demo.ts
 
 import path from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -43,7 +35,6 @@ function log(step: string, msg: string) {
 }
 
 async function main() {
-  // ── Midnight: mint an anonymous badge ────────────────────────────────
   const info = readMidnightContract("contract-anonboard", {
     networkId: midnightNetworkConfig.id,
   });
@@ -100,7 +91,6 @@ async function main() {
     initialPrivateState: createAnonboardPrivateState(OWNER_SECRET_KEY),
   } as never);
 
-  // Read `owner` off the public ledger so we can put it on the roster.
   const raw = await providers.publicDataProvider.queryContractState(
     info.contractAddress,
   );
@@ -116,9 +106,7 @@ async function main() {
     log("midnight", "owner already on roster");
   }
 
-  // The badge: a throwaway Solana keypair, bound to "some roster member".
-  // Persisted so a second run can post from it again — `join` burns a
-  // nullifier, so the same member can never mint a second badge.
+  // Persisted for reuse — join burns a one-shot nullifier, so a member mints only one badge.
   const badgeFile = path.resolve(import.meta.dirname!, "..", "badge.json");
   let badge: Keypair;
   if (existsSync(badgeFile)) {
@@ -134,7 +122,6 @@ async function main() {
     log("midnight", "badge minted — ledger records the key, not the person");
   }
 
-  // ── Solana: two posts, one legitimate, one not ───────────────────────
   const conn = new Connection(RPC, "confirmed");
   const stranger = Keypair.generate();
 

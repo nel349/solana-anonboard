@@ -1,18 +1,5 @@
-// Operator service — the "Party B" of the anonboard flow.
-//
-// Holds the owner + fee-payer Midnight wallet and exposes exactly two writes the
-// browser cannot do itself:
-//   POST /register { memberPkHex }  -> owner add_to_roster(memberPk)
-//   POST /submit   { unboundHex }   -> pay + submit a browser-proven join tx
-//
-// The browser proves the join locally (secret never leaves it) and hands over
-// only the unbound tx bytes; this service pays and submits without ever seeing
-// the membership secret. That is the operator-blind property, lifted straight
-// from scripts/blind-join.ts. Read routes live on the sync node; these WRITES
-// live here so the node stays read-only / replay-deterministic.
-//
-// Dev-only: single funded wallet, permissive localhost CORS, no auth. A real
-// deployment would gate /register behind an invite and rate-limit both.
+// Operator ("Party B"): pays + submits a browser-proven join WITHOUT seeing the
+// membership secret (operator-blind). Dev-only: single funded wallet, permissive CORS, no auth.
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
   buildWalletAndWaitForFunds,
@@ -158,7 +145,6 @@ async function submit(unboundHex: string): Promise<{ txid: string }> {
   });
 }
 
-// ── HTTP (Bun.serve) ────────────────────────────────────────────────────────
 function cors(origin: string | null): Record<string, string> {
   // Dev-only: reflect any localhost origin so the Vite dev server works on any port.
   const allow = origin && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ? origin : "*";
