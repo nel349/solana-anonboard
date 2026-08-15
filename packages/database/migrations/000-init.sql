@@ -1,22 +1,3 @@
--- Latest counter value per authority (one PDA per user on-chain).
-CREATE TABLE IF NOT EXISTS counter_state (
-  authority TEXT PRIMARY KEY,
-  value BIGINT NOT NULL DEFAULT 0,
-  slot BIGINT NOT NULL,           -- Solana slot last seen
-  block_height INTEGER NOT NULL,  -- engine block height, for ordering
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Append-only log of counter changes.
-CREATE TABLE IF NOT EXISTS counter_events (
-  id SERIAL PRIMARY KEY,
-  authority TEXT NOT NULL,
-  value BIGINT NOT NULL,
-  slot BIGINT NOT NULL,
-  block_height INTEGER NOT NULL,
-  kind TEXT NOT NULL,                  -- "increment" | "reset"
-  delta BIGINT NOT NULL DEFAULT 0,
-  emitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_counter_events_authority ON counter_events (authority, id DESC);
+-- Intentionally empty. The counter template's tables (counter_state /
+-- counter_events) were removed; anonboard's schema lives in 001-anonboard.sql
+-- (badges / posts). This migration slot is retained for ordering.

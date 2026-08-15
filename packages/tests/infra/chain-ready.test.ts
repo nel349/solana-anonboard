@@ -1,5 +1,5 @@
 import { assert } from "../helpers.ts";
-import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const RPC_URL = "http://localhost:8899";
 
@@ -18,9 +18,9 @@ export async function chainReadyTest() {
     return result === "ok";
   });
 
-  await assert("Counter program is loaded at COUNTER_PROGRAM_ID", async () => {
+  await assert("Counter program is loaded at POST_PROGRAM_ID", async () => {
     const result = await rpc("getAccountInfo", [
-      COUNTER_PROGRAM_ID,
+      POST_PROGRAM_ID,
       { encoding: "base64" },
     ]);
     return result?.value != null && result.value.executable === true;

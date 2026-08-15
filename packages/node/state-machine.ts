@@ -10,7 +10,7 @@ import {
   insertPost,
 } from "@solana-anonboard/database";
 import { grammar } from "./grammar.ts";
-import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 
 const POST_LOG_PREFIX = "ANONBOARD_POST";
 
@@ -61,7 +61,7 @@ stm.addStateTransition("solana-post", function* (data) {
   const { parsedInput, blockHeight } = data;
   const { slot, programId, logMessages } = parsedInput as any;
 
-  if (programId !== COUNTER_PROGRAM_ID) return;
+  if (programId !== POST_PROGRAM_ID) return;
 
   for (const raw of logMessages as string[]) {
     const parsed = parsePostLog(raw);

@@ -1,10 +1,7 @@
 import { runPreparedQuery } from "@effectstream/db";
 import {
   getAllBadges,
-  getAllCounters,
   getAllPosts,
-  getCounterByAuthority,
-  getRecentEvents,
 } from "@solana-anonboard/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
@@ -32,24 +29,6 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: FastifyInstance,
   dbConn: Pool,
 ): Promise<void> {
-  server.get<{ Params: { authority: string } }>(
-    "/api/counter/:authority",
-    async (request, reply) => {
-      const result = await safeRead(
-        () => runPreparedQuery(
-          getCounterByAuthority.run({ authority: request.params.authority }, dbConn),
-          "/api/counter/:authority",
-        ),
-        "/api/counter/:authority",
-      );
-      if (result.length === 0) {
-        reply.code(404).send({ error: "counter not found", authority: request.params.authority });
-        return;
-      }
-      reply.send({ counter: result[0] });
-    },
-  );
-
   // /api/badges: anon member badges mirrored from Midnight. /api/posts: Solana
   // posts tagged accepted by the arbiter — accepted:false rows prove the check runs.
   server.get("/api/badges", async (_request, reply) => {
@@ -71,28 +50,4 @@ export const apiRouter: StartConfigApiRouter = async function (
       rejected: result.filter((p) => !(p as { accepted: boolean }).accepted).length,
     });
   });
-
-  server.get("/api/counters", async (_request, reply) => {
-    const result = await safeRead(
-      () => runPreparedQuery(getAllCounters.run(undefined, dbConn), "/api/counters"),
-      "/api/counters",
-    );
-    reply.send({ counters: result });
-  });
-
-  server.get<{ Querystring: { limit?: string } }>(
-    "/api/counter-events",
-    async (request, reply) => {
-      // `?limit=abc` -> NaN, which used to reach Postgres and 500. Fall back.
-      const requested = Number(request.query.limit ?? "50");
-      const limit = Number.isFinite(requested)
-        ? Math.min(Math.max(Math.trunc(requested), 1), 500)
-        : 50;
-      const result = await safeRead(
-        () => runPreparedQuery(getRecentEvents.run({ limit }, dbConn), "/api/counter-events"),
-        "/api/counter-events",
-      );
-      reply.send({ events: result });
-    },
-  );
 };

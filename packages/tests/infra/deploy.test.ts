@@ -1,10 +1,10 @@
 import { assert } from "../helpers.ts";
-import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const RPC_URL = "http://localhost:8899";
 
 // Local "deploy" = --bpf-program on the validator (chain-start.ts), not
-// `solana program deploy`; either way the program must exist at COUNTER_PROGRAM_ID.
+// `solana program deploy`; either way the program must exist at POST_PROGRAM_ID.
 export async function deployTest() {
   await assert("Counter program is owned by BPF loader and executable", async () => {
     const res = await fetch(RPC_URL, {
@@ -15,7 +15,7 @@ export async function deployTest() {
         id: 1,
         method: "getAccountInfo",
         params: [
-          COUNTER_PROGRAM_ID,
+          POST_PROGRAM_ID,
           { encoding: "base64", commitment: "processed" },
         ],
       }),

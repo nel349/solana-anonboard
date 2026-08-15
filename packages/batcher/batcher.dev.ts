@@ -9,7 +9,7 @@ import { createSolanaAdapter } from "./solana-adapter.ts";
 import {
   DEV_RPC_URL,
   DEV_NAMESPACE,
-  COUNTER_PROGRAM_ID,
+  POST_PROGRAM_ID,
 } from "@solana-anonboard/contracts-solana";
 
 /**
@@ -37,7 +37,7 @@ const solana = createSolanaAdapter({
   rpcUrl: RPC_URL,
   batcherKeypairPath: BATCHER_KEYPAIR,
   syncProtocolName: SYNC_PROTOCOL_NAME,
-  targetProgramId: COUNTER_PROGRAM_ID,
+  targetProgramId: POST_PROGRAM_ID,
   // The counter program creates a PDA funded by the sponsor, so it must be
   // allowed to appear as the rent payer in the sponsored instruction.
   allowSponsorAsInstructionAccount: true,

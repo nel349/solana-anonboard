@@ -5,7 +5,7 @@
 import { run } from "@effectstream/solana-node";
 import fs from "node:fs";
 import path from "node:path";
-import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 
 const RPC_PORT = Number(process.env.SOLANA_RPC_PORT ?? "8899");
 const FAUCET_PORT = Number(process.env.SOLANA_FAUCET_PORT ?? "9900");
@@ -27,7 +27,7 @@ async function main() {
   }
 
   console.log(
-    `[chain:start] solana-test-validator\n  rpc:     http://localhost:${RPC_PORT}\n  faucet:  ${FAUCET_PORT}\n  program: ${COUNTER_PROGRAM_ID}`,
+    `[chain:start] solana-test-validator\n  rpc:     http://localhost:${RPC_PORT}\n  faucet:  ${FAUCET_PORT}\n  program: ${POST_PROGRAM_ID}`,
   );
 
   const { child } = await run({
@@ -35,7 +35,7 @@ async function main() {
     faucetPort: FAUCET_PORT,
     reset: RESET,
     verbose: true,
-    bpfPrograms: [{ address: COUNTER_PROGRAM_ID, soPath: PROGRAM_SO }],
+    bpfPrograms: [{ address: POST_PROGRAM_ID, soPath: PROGRAM_SO }],
   });
 
   child.on("close", (code) => {

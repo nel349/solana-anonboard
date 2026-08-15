@@ -7,7 +7,7 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeSolanaProgramLog,
 } from "@effectstream/sm/builtin";
-import { COUNTER_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import * as AnonboardContract from "@solana-anonboard/midnight-contract/contract";
@@ -91,7 +91,7 @@ export const config = new ConfigBuilder()
           name: "SolanaProgramLog",
           type: PrimitiveTypeSolanaProgramLog,
           startBlockHeight: 0,
-          programId: COUNTER_PROGRAM_ID,
+          programId: POST_PROGRAM_ID,
           stateMachinePrefix: "solana-post",
         }),
       )
@@ -120,5 +120,3 @@ export const config = new ConfigBuilder()
       ),
   )
   .build();
-
-export { COUNTER_PROGRAM_ID };

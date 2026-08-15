@@ -14,7 +14,10 @@ console.log("badge_count:", l.badge_count.toString());
 const badges: string[] = [];
 for (const [k] of l.badges) badges.push(bs58.encode(k as Uint8Array));
 console.log("badges on-chain:", badges.map(b=>b.slice(0,12)));
-console.log("looking for 81itZYcw:", badges.some(b=>b.startsWith("81itZYcw")));
+const badgePrefix = process.env.BADGE_PREFIX;
+if (badgePrefix) {
+  console.log(`looking for ${badgePrefix}:`, badges.some(b=>b.startsWith(badgePrefix)));
+}
 const roster: string[] = [];
 for (const [k] of l.roster) roster.push(Buffer.from(k as Uint8Array).toString("hex").slice(0,12));
 console.log("roster members (hex):", roster);
