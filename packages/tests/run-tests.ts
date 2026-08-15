@@ -1,5 +1,5 @@
-// Phase C (frontend) isn't covered — Phantom can't run headless; the batcher
-// round-trip covers it via a raw Keypair.
+// Phase C (the browser UI) isn't covered headless; the batcher round-trip
+// exercises the same post path via a raw keypair.
 import {
   anyError,
   printSummary,

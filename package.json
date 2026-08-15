@@ -1,6 +1,10 @@
 {
   "name": "solana-anonboard",
+  "version": "0.1.0",
   "private": true,
+  "description": "Anonymous bulletin board — membership proven privately on Midnight, gasless public posting on Solana, stitched by an EffectStream sync node.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/nel349/solana-anonboard" },
   "workspaces": [
     "packages/*",
     "packages/contracts-midnight",

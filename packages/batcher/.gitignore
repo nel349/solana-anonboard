@@ -1,0 +1,5 @@
+# Keypairs. batcher-wallet.json IS committed on purpose: it's the dev/localnet
+# gasless fee-payer, its secret is public, and it must NEVER be funded on a real
+# network. Any OTHER keypair stays out.
+keypair/*.json
+!keypair/batcher-wallet.json

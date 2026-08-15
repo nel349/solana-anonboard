@@ -6,6 +6,9 @@ node_modules/
 # Solana program build output
 build/
 
+# Frontend build output
+packages/frontend/dist/
+
 # Generated ZK artifacts served to the browser (copied from managed/ by copy-zk)
 packages/frontend/public/anonboard/
 

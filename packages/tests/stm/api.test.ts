@@ -20,7 +20,7 @@ export async function apiTest(acceptedAuthor: string, joinedBadge: string) {
   await assert("GET /api/posts reports at least one rejected post", async () => {
     const res = await fetch(`http://localhost:${API_PORT}/api/posts`);
     const data = await res.json();
-    // The stranger post is a real rejected row; the counter proves the check runs.
+    // The stranger post is a real rejected row — proof the arbiter's check runs.
     return Number(data.rejected) >= 1;
   });
 
