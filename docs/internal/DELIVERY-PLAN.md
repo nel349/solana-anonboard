@@ -14,6 +14,29 @@ Work top-down. Check items off in place.
 
 ---
 
+## ✅ Done so far (2026-08-15) — pushed to private `nel349/solana-anonboard`
+
+- **Counter cleanup** (`f4b49b2`) — removed all dead template code: Rust program
+  trimmed to Post (250→56 lines), dead node API endpoints, counter DB tables +
+  query layer, increment/reset TS builders; renamed `COUNTER_PROGRAM_ID` →
+  `POST_PROGRAM_ID`; parameterized the read-state.ts hardcode. Verified: bun
+  install, transpile, `bun run build:solana` (same program id).
+- **Repo hygiene** (`afd730d`) — package.json metadata; documented the committed
+  dev keypairs (batcher + program); fixed the counter.so gitignore contradiction
+  (build-on-demand); untracked the built frontend `dist/`; reworded stale comments.
+- **Publish** — docs relocated to `docs/internal/` + made tracked; `poster.json`
+  (a committed keypair) untracked; repo pushed **private** with full history.
+
+## ⏳ Remaining
+
+- **P0:** sign the commits (needs your key) · attach refactor + tests green
+  (needs a localnet; coordinate ports).
+- **Deferred:** rename the `programs/counter` dir/crate (couples to `.so` + keypair).
+- **Open decisions:** wire the design system into the frontend · scrub history
+  before any public release · CI · workspace-version alignment.
+
+---
+
 ## P0 — Blockers (must be done before delivery)
 
 - [ ] **Remove the committed private key.** `poster.json` (root) is a tracked
