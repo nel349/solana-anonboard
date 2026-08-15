@@ -134,6 +134,13 @@ async function test() {
     const { deployTest } = await import("./infra/deploy.test.ts");
     await deployTest();
 
+    // The sync node reads the deployed Midnight contract address at import time,
+    // so the Compact deploy must finish before sync (and Phase B) can run.
+    await waitForProcess("midnight-contract", {
+      waitForExit: true,
+      timeoutMs: 600_000,
+    });
+
     await waitForProcess("batcher");
     await waitForProcess("sync");
     await waitForHealth();
@@ -150,13 +157,11 @@ async function test() {
     await db.connect();
     db.on("error", (err: Error) => console.error("DB error:", err));
 
-    const { submitCounterTest } = await import(
-      "./stm/submit-counter.test.ts"
-    );
-    const { address, value } = await submitCounterTest(db);
+    const { postTest } = await import("./stm/post.test.ts");
+    const { acceptedAuthor, joinedBadge } = await postTest(db);
 
     const { apiTest } = await import("./stm/api.test.ts");
-    await apiTest(address, value);
+    await apiTest(acceptedAuthor, joinedBadge);
 
     printSummary();
   } catch (e) {
