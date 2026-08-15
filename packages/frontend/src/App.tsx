@@ -33,7 +33,7 @@ const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
 const BADGES_URL = `${DEV_NODE_API_URL}/api/badges`;
 const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
 const ADDRESS_TYPE_SOLANA = 9; // AddressType.SOLANA
-const MAX_BODY = 280; // bounded by the Solana tx size (see DECISIONS.md D9)
+const MAX_BODY = 280; // bounded by the Solana tx size
 
 // Sponsor pays 5,000 lamports/signature × 2 sigs per post; author pays nothing.
 const LAMPORTS_PER_SIGNATURE = 5000;
@@ -41,7 +41,7 @@ const SIGNATURES_PER_POST = 2; // badge author + sponsor fee-payer
 const COST_PER_POST_LAMPORTS = LAMPORTS_PER_SIGNATURE * SIGNATURES_PER_POST;
 const COST_PER_POST_SOL = COST_PER_POST_LAMPORTS / LAMPORTS_PER_SOL;
 
-// Anonymous session identity, unlinkable to the on-chain member (DECISIONS.md D4). Not the user's wallet.
+// Anonymous session identity, unlinkable to the on-chain member. Not the user's wallet.
 const BADGE_STORAGE_KEY = "anonboard.badge.v1";
 
 // The membership secret (32 bytes) is the roster identity, separate from the
