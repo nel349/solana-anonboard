@@ -25,6 +25,9 @@
   "devDependencies": {
     "midnight-wallet-cli": "^0.4.1"
   },
+  "overrides": {
+    "arch": "^3.0.0"
+  },
   "effectstream": {
     "default": "start.dev.ts"
   }
