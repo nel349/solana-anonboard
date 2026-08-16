@@ -48,6 +48,11 @@ if (mnPlan.mode === "self-host") {
   );
   for (const p of midnightProcesses)
     delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
+  // The vendored indexer 4.3.3 can crash on a freshly-wiped chain (spo-indexer
+  // process_next_epoch race); the orchestrator has no restart, so supervise it.
+  const indexer = midnightProcesses.find((p) => p.name === MidnightNames.INDEXER);
+  if (indexer)
+    indexer.args = ["run", path.join(root, "scripts/restart-on-failure.ts"), ...indexer.args];
 } else {
   // Attach: skip node/indexer/proof entirely; fund the deploy wallet, then deploy.
   midnightProcesses = [
