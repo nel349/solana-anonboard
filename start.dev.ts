@@ -3,6 +3,7 @@ import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import { midnightPlan } from "./localnet-preflight.ts";
 
 const root = import.meta.dirname!;
 
@@ -27,6 +28,49 @@ if (solanaValidatorIdx >= 0) {
       "build-counter",
     ],
   };
+}
+
+// Decide the Midnight leg: self-host a fresh localnet, or attach to a running one.
+// Never force-frees a shared port. See docs/internal/LOCALNET-DESIGN.md.
+const mnPlan = midnightPlan();
+console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
+const contractsMidnightCwd = path.join(root, "packages/contracts-midnight");
+const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" };
+
+let midnightProcesses;
+if (mnPlan.mode === "self-host") {
+  // Boot the full localnet — but strip stopProcessAtPort so we never force-free a
+  // shared port (the preflight already confirmed these ports are ours to use).
+  midnightProcesses = launchMidnight(
+    "@solana-anonboard/contracts-midnight",
+    { cwd: contractsMidnightCwd },
+    { dependsOn: ["midnight-contract-compile"], env: deployEnv },
+  );
+  for (const p of midnightProcesses)
+    delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
+} else {
+  // Attach: skip node/indexer/proof entirely; fund the deploy wallet, then deploy.
+  midnightProcesses = [
+    {
+      name: "midnight-fund",
+      description: "Fund the deploy wallet on the attached localnet (mn)",
+      cwd: root,
+      args: ["run", "scripts/midnight-fund.ts"],
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["midnight-contract-compile"],
+    },
+    {
+      name: MidnightNames.CONTRACT_DEPLOY,
+      description: "Deploy the anonboard contract (attached localnet)",
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-contract:deploy"],
+      env: deployEnv,
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["midnight-contract-compile", "midnight-fund"],
+    },
+  ];
 }
 
 export default {
@@ -58,16 +102,7 @@ export default {
       critical: true,
     },
 
-    ...launchMidnight(
-      "@solana-anonboard/contracts-midnight",
-      { cwd: path.join(root, "packages/contracts-midnight") },
-      {
-        dependsOn: ["midnight-contract-compile"],
-        // Required by @effectstream/midnight-contracts/deploy. Must be 16
-        // chars. Dev-only value; matches the node:start script.
-        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-      },
-    ),
+    ...midnightProcesses,
 
     {
       name: "sync",

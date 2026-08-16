@@ -3,6 +3,7 @@ import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import { midnightPlan } from "../../localnet-preflight.ts";
 
 const root = path.resolve(import.meta.dirname!, "../..");
 
@@ -26,6 +27,47 @@ if (idx >= 0) {
   };
 }
 
+// Same smart Midnight leg as dev: attach to a running localnet or self-host one,
+// never force-freeing a shared port. This is what lets the tests run against an
+// already-running localnet instead of killing it.
+const mnPlan = midnightPlan();
+console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
+const contractsMidnightCwd = path.join(root, "packages/contracts-midnight");
+const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" };
+
+let midnightProcesses;
+if (mnPlan.mode === "self-host") {
+  midnightProcesses = launchMidnight(
+    "@solana-anonboard/contracts-midnight",
+    { cwd: contractsMidnightCwd },
+    { dependsOn: ["midnight-contract-compile"], env: deployEnv },
+  );
+  for (const p of midnightProcesses)
+    delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
+} else {
+  midnightProcesses = [
+    {
+      name: "midnight-fund",
+      description: "Fund the deploy wallet on the attached localnet (mn)",
+      cwd: root,
+      args: ["run", "scripts/midnight-fund.ts"],
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["midnight-contract-compile"],
+    },
+    {
+      name: MidnightNames.CONTRACT_DEPLOY,
+      description: "Deploy the anonboard contract (attached localnet)",
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-contract:deploy"],
+      env: deployEnv,
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["midnight-contract-compile", "midnight-fund"],
+    },
+  ];
+}
+
 export default {
   processes: [
     ...launchPglite(),
@@ -41,9 +83,9 @@ export default {
     },
     ...solanaProcesses,
 
-    // ── Midnight leg: compile the Compact circuit, then bring up the local
-    // node/indexer/proof-server and deploy the anonboard contract. The post
-    // tests drive real joins against this contract. ──
+    // Midnight leg: compile the Compact circuit, then either self-host the local
+    // node/indexer/proof + deploy, or (if a localnet is already running) fund +
+    // deploy against it — see the smart plan above.
     {
       name: "midnight-contract-compile",
       description: "Compile the anonboard Compact circuit",
@@ -53,16 +95,7 @@ export default {
       type: "system-dependency",
       critical: true,
     },
-    ...launchMidnight(
-      "@solana-anonboard/contracts-midnight",
-      { cwd: path.join(root, "packages/contracts-midnight") },
-      {
-        dependsOn: ["midnight-contract-compile"],
-        // Required by @effectstream/midnight-contracts/deploy. Must be 16
-        // chars. Dev-only value; matches the node:start script.
-        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-      },
-    ),
+    ...midnightProcesses,
 
     {
       name: "airdrop-batcher",

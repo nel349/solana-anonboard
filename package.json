@@ -22,6 +22,9 @@
     "@effectstream/orchestrator": "0.102.0",
     "wait-on": "8.0.3"
   },
+  "devDependencies": {
+    "midnight-wallet-cli": "^0.4.1"
+  },
   "effectstream": {
     "default": "start.dev.ts"
   }
