@@ -38,8 +38,9 @@ const solana = createSolanaAdapter({
   batcherKeypairPath: BATCHER_KEYPAIR,
   syncProtocolName: SYNC_PROTOCOL_NAME,
   targetProgramId: POST_PROGRAM_ID,
-  // The counter program creates a PDA funded by the sponsor, so it must be
-  // allowed to appear as the rent payer in the sponsored instruction.
+  // anonboard's post program writes no account, so the sponsor is never an
+  // instruction account and this flag has no effect here. Left at the template
+  // default; per solana-adapter.ts a pure-log program would normally set false.
   allowSponsorAsInstructionAccount: true,
 });
 

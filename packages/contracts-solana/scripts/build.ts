@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Build entry: compiles the counter program and regenerates mod.ts (the
+// Build entry: compiles the anonboard post program and regenerates mod.ts (the
 // program id + instruction builders that node/batcher/frontend import).
 import path from "node:path";
 import fs from "node:fs";
@@ -13,14 +13,14 @@ import { POST_PROGRAM_ID } from "../program-id.ts";
 
 const PKG_DIR = import.meta.dirname!;
 const ROOT = path.resolve(PKG_DIR, "..");
-const PROGRAM_SO = path.join(ROOT, "build", "counter.so");
+const PROGRAM_SO = path.join(ROOT, "build", "anonboard.so");
 
 function buildProgramIfMissing() {
   // SKIP_SOLANA_BUILD=1 means "reuse the existing .so", not "never build".
   // It defaults to 1 in start.dev.ts / start.test.ts so repeat runs are fast,
-  // but build/ is gitignored and nothing ships a pre-compiled counter.so — so
+  // but build/ is gitignored and nothing ships a pre-compiled anonboard.so — so
   // honouring the skip unconditionally made `bun run dev` and `bun run test`
-  // fail on every fresh clone: compilation skipped, then "build/counter.so is
+  // fail on every fresh clone: compilation skipped, then "build/anonboard.so is
   // missing after build".
   if (process.env.SKIP_SOLANA_BUILD === "1") {
     if (fs.existsSync(PROGRAM_SO)) {
@@ -30,7 +30,7 @@ function buildProgramIfMissing() {
       return;
     }
     console.log(
-      "[contracts-solana] SKIP_SOLANA_BUILD=1 but build/counter.so is absent — compiling anyway",
+      "[contracts-solana] SKIP_SOLANA_BUILD=1 but build/anonboard.so is absent — compiling anyway",
     );
   }
   const result = spawnSync(
@@ -70,7 +70,7 @@ writeMod();
 
 if (!fs.existsSync(PROGRAM_SO)) {
   console.error(
-    `[contracts-solana] build/counter.so is missing after build. Did cargo-build-sbf succeed?`,
+    `[contracts-solana] build/anonboard.so is missing after build. Did cargo-build-sbf succeed?`,
   );
   process.exit(1);
 }

@@ -6,7 +6,7 @@ const RPC_URL = "http://localhost:8899";
 // Local "deploy" = --bpf-program on the validator (chain-start.ts), not
 // `solana program deploy`; either way the program must exist at POST_PROGRAM_ID.
 export async function deployTest() {
-  await assert("Counter program is owned by BPF loader and executable", async () => {
+  await assert("Post program is owned by BPF loader and executable", async () => {
     const res = await fetch(RPC_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

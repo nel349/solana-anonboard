@@ -11,7 +11,7 @@ const root = import.meta.dirname!;
 // config.dev.ts calls readMidnightContract() at import time.
 const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 
-// Validator waits on the counter build (needs build/counter.so for `--bpf-program`).
+// Validator waits on the anonboard build (needs build/anonboard.so for `--bpf-program`).
 // cwd, not resolveFrom: require.resolve can't see this template's workspace
 // packages once @effectstream/orchestrator is an installed npm dep.
 const solanaProcesses = launchSolana("@solana-anonboard/node", {
@@ -25,7 +25,7 @@ if (solanaValidatorIdx >= 0) {
     ...solanaProcesses[solanaValidatorIdx],
     dependsOn: [
       ...(solanaProcesses[solanaValidatorIdx].dependsOn ?? []),
-      "build-counter",
+      "build-anonboard",
     ],
   };
 }
@@ -77,11 +77,11 @@ export default {
   processes: [
     ...launchPglite(),
 
-    // SKIP_SOLANA_BUILD=1 (default) reuses build/counter.so when present and
+    // SKIP_SOLANA_BUILD=1 (default) reuses build/anonboard.so when present and
     // compiles it when absent; set =0 to force a recompile every boot.
     {
-      name: "build-counter",
-      description: "Build the Solana counter program (.so)",
+      name: "build-anonboard",
+      description: "Build the Solana anonboard post program (.so)",
       cwd: path.join(root, "packages/contracts-solana"),
       args: ["run", "scripts/build.ts"],
       waitToExit: true,

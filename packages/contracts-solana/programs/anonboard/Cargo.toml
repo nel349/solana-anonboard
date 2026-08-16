@@ -1,9 +1,9 @@
 [package]
-name = "counter"
+name = "anonboard"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Minimal Solana counter program for the effectstream solana-starter template"
+description = "Minimal Solana post program backing the anonboard example"
 resolver = "2"
 
 [lib]

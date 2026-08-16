@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Compiles the counter program to build/counter.so using the vendored
+// Compiles the anonboard post program to build/anonboard.so using the vendored
 // cargo-build-sbf from @effectstream/solana-node (no global Solana CLI needed).
 import path from "node:path";
 import fs from "node:fs";
@@ -7,9 +7,9 @@ import { spawnSync } from "node:child_process";
 
 const PKG_DIR = import.meta.dirname!;
 const ROOT = path.resolve(PKG_DIR, "..");
-const PROGRAM_MANIFEST = path.join(ROOT, "programs", "counter", "Cargo.toml");
+const PROGRAM_MANIFEST = path.join(ROOT, "programs", "anonboard", "Cargo.toml");
 const BUILD_DIR = path.join(ROOT, "build");
-const OUT_SO = path.join(BUILD_DIR, "counter.so");
+const OUT_SO = path.join(BUILD_DIR, "anonboard.so");
 
 function resolveCargoBuildSbf(): string {
   const candidates = [
@@ -69,8 +69,8 @@ function main() {
     console.error(
       `[contracts-solana] could not execute ${bin}\n` +
         `  ${result.error ?? "spawn failed"}\n` +
-        `\nbuild/counter.so is committed, so the normal path never needs this:\n` +
-        `run with SKIP_SOLANA_BUILD=1 (the default via start.dev.ts) to reuse it.\n` +
+        `\nbuild/anonboard.so is normally present from a prior build, so the usual\n` +
+        `path reuses it (SKIP_SOLANA_BUILD=1, the default via start.dev.ts).\n` +
         `To genuinely rebuild, start the validator once so\n` +
         `@effectstream/solana-node downloads its vendored cargo-build-sbf, or put\n` +
         `one on PATH.`,
@@ -84,7 +84,7 @@ function main() {
     process.exit(result.status);
   }
 
-  const built = path.join(BUILD_DIR, "counter.so");
+  const built = path.join(BUILD_DIR, "anonboard.so");
   if (!fs.existsSync(built)) {
     console.error(
       `[contracts-solana] Expected output not found at ${built}. Run with --debug for cargo output.`,

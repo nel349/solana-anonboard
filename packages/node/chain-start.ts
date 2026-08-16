@@ -14,7 +14,7 @@ const RESET = (process.env.SOLANA_RESET ?? "true") !== "false";
 const TEMPLATE_ROOT = path.resolve(import.meta.dirname!, "../..");
 const PROGRAM_SO = path.join(
   TEMPLATE_ROOT,
-  "packages/contracts-solana/build/counter.so",
+  "packages/contracts-solana/build/anonboard.so",
 );
 
 async function main() {

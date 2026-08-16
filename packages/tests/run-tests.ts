@@ -121,7 +121,7 @@ async function test() {
     await waitForOrchestrator();
 
     console.log("\n--- Phase A: Infrastructure Tests ---\n");
-    await waitForProcess("build-counter", { waitForExit: true, timeoutMs: 600_000 });
+    await waitForProcess("build-anonboard", { waitForExit: true, timeoutMs: 600_000 });
     await waitForProcess("solana-validator-wait", {
       waitForExit: true,
       timeoutMs: 300_000,

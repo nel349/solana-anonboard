@@ -83,7 +83,7 @@ stm.addStateTransition("solana-post", function* (data) {
   }
 });
 
-// PREFIX|<author>|<slot>|<body> — reuses the counter program's log format;
+// PREFIX|<author>|<slot>|<body> — reuses the post program's log format;
 // body stands in for post content in this PoC.
 function parsePostLog(raw: string): { author: string; body: string } | null {
   const line = raw.startsWith("Program log: ")

@@ -12,8 +12,8 @@ const root = path.resolve(import.meta.dirname!, "../..");
 // step has finished.
 const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 
-// build-counter must finish before the validator (chain-start.ts needs
-// counter.so for --bpf-program).
+// build-anonboard must finish before the validator (chain-start.ts needs
+// anonboard.so for --bpf-program).
 // Use `cwd`, not `resolveFrom`: resolveFrom can't see this template's own
 // workspace packages when the orchestrator is installed from npm, not symlinked.
 const solanaProcesses = launchSolana("@solana-anonboard/node", {
@@ -23,7 +23,7 @@ const idx = solanaProcesses.findIndex((p) => p.name === SolanaNames.SOLANA_VALID
 if (idx >= 0) {
   solanaProcesses[idx] = {
     ...solanaProcesses[idx],
-    dependsOn: [...(solanaProcesses[idx].dependsOn ?? []), "build-counter"],
+    dependsOn: [...(solanaProcesses[idx].dependsOn ?? []), "build-anonboard"],
   };
 }
 
@@ -72,8 +72,8 @@ export default {
   processes: [
     ...launchPglite(),
     {
-      name: "build-counter",
-      description: "Build the Solana counter program (.so)",
+      name: "build-anonboard",
+      description: "Build the Solana anonboard post program (.so)",
       cwd: path.join(root, "packages/contracts-solana"),
       args: ["run", "scripts/build.ts"],
       waitToExit: true,

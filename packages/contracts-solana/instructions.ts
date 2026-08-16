@@ -1,5 +1,5 @@
 // Client-side instruction builder for the post program. Mirrors the Rust
-// handler in programs/counter/src/lib.rs — the byte layout (discriminant byte
+// handler in programs/anonboard/src/lib.rs — the byte layout (discriminant byte
 // then the UTF-8 body) is part of the program's wire format, so keep in sync.
 import {
   PublicKey,

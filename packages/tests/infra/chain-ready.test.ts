@@ -18,7 +18,7 @@ export async function chainReadyTest() {
     return result === "ok";
   });
 
-  await assert("Counter program is loaded at POST_PROGRAM_ID", async () => {
+  await assert("Post program is loaded at POST_PROGRAM_ID", async () => {
     const result = await rpc("getAccountInfo", [
       POST_PROGRAM_ID,
       { encoding: "base64" },

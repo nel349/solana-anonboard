@@ -1,9 +1,9 @@
 # Rust/SBF build artifacts
-programs/counter/target/
+programs/anonboard/target/
 
 # Compiled program output — built on demand, never committed. `bun run dev` runs
-# the build-counter step before the validator; `bun run build:solana` rebuilds it
-# after editing programs/counter/src/lib.rs. (cargo-build-sbf ships in
+# the build-anonboard step before the validator; `bun run build:solana` rebuilds it
+# after editing programs/anonboard/src/lib.rs. (cargo-build-sbf ships in
 # @effectstream/solana-node's vendor/ dir, populated when the node binary downloads.)
 /build/
 
@@ -13,8 +13,8 @@ test-ledger/
 # rustfmt backups
 **/*.rs.bk
 
-# Keypairs. `keypair/counter-program.json` IS committed on purpose so the
+# Keypairs. `keypair/anonboard-program.json` IS committed on purpose so the
 # program ID stays deterministic for local dev — its secret is public and it
 # must never own anything on a real network. Any OTHER keypair stays out.
 keypair/*.json
-!keypair/counter-program.json
+!keypair/anonboard-program.json

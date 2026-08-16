@@ -1,3 +1,2 @@
--- Intentionally empty. The counter template's tables (counter_state /
--- counter_events) were removed; anonboard's schema lives in 001-anonboard.sql
+-- Intentionally empty — anonboard's schema lives in 001-anonboard.sql
 -- (badges / posts). This migration slot is retained for ordering.
