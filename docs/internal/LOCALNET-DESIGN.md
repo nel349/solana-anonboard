@@ -43,37 +43,49 @@ Classification (whole group):
 |---|---|---|
 | **ABSENT** | all three ports free | **SELF-HOST** — boot node(dev-spec)+indexer+proof+deploy, as today |
 | **HEALTHY + COMPATIBLE** | all three healthy, network id = `undeployed`, generation matches | **ATTACH** — skip the three boot processes; deploy + fund on the running chain |
-| **PARTIAL / UNHEALTHY / INCOMPATIBLE** | some up, or wrong network id / genesis, or unresponsive | **ABORT** — print exactly what's wrong and what to do; never kill |
+| **INCOMPATIBLE** | healthy, but wrong network id / generation | **NOTIFY + ASK** — say what's running vs what anonboard needs, then offer to start the correct localnet (stopping the running one **only** on an explicit "yes"). Non-interactive → abort with the message. |
+| **PARTIAL / UNHEALTHY** | some ports up, or unresponsive | **NOTIFY + ASK** — offer to reclaim the stuck bits and start fresh, only with consent. Non-interactive → abort. |
 
 "Compatible" matters: attaching to a *different* network id (e.g. `preview` on the
 same ports) would break address formats (HRP mismatch) and dust — so a mismatch is
-an ABORT, not an attach.
+never a silent attach.
 
 ## Never kill — replace the hammer
 
 Today each Midnight boot process carries `stopProcessAtPort`, which `lsof + kill`s
 whatever holds 9944/8088/6300 (including the Docker port-proxy of a running
 localnet), at both launch and shutdown. **Remove `stopProcessAtPort` from the
-Midnight group entirely.** Freeing a shared port by force is the bug. In SELF-HOST
-mode the ports are already free (that's why we chose SELF-HOST); in ATTACH mode we
-don't boot those processes at all. An unhealthy orphan on the ports → ABORT with
-guidance (optionally a `--reclaim` override to kill *our own* dead orphan).
+Midnight group entirely.** Force-freeing a shared port is the bug. In SELF-HOST
+mode the ports are already free (that's why we chose it); in ATTACH mode we don't
+boot those processes at all. The **only** time we stop something on those ports is
+the incompatible/partial case above — and only after the dev says "yes, start the
+correct one for me."
 
-## The real work: funding on attach
+## The real work: funding on attach — via the `mn` CLI
 
 Self-host is easy — the committed `dev-spec.json` genesis funds the deploy wallet
-automatically. **Attach's one hard part is funding.** The running localnet is a
-*different chain* (different genesis) that funds *its own* wallet, not anonboard's
-deploy seed. So ATTACH mode must, before deploy:
+automatically. **Attach's one hard part is funding**, because the running localnet
+is a *different chain* that funds *its own* wallet, not anonboard's deploy seed.
 
+Rather than reimplement Midnight wallet ops, **add `midnight-wallet-cli` (`mn`) as
+a devDependency** and let it do the work — it already has airdrop, dust
+registration, balance, and transfer, all tested. (Solana already funds its side
+this way via the `airdrop-batcher` step; this gives Midnight the same treatment.)
+
+ATTACH-mode fund preflight:
 1. Derive the deploy wallet's Midnight address from its seed.
-2. Ensure it holds NIGHT + registered dust on the attached chain — airdrop/transfer
-   if the chain supports it (the wallet-cli localnet does), else require a
-   known-funded `MIDNIGHT_WALLET_SEED`.
-3. Then run the (idempotent) contract deploy and proceed.
+2. `mn airdrop` NIGHT to it + register dust on the attached chain (idempotent —
+   skip if already funded).
+3. Run the (idempotent) contract deploy and proceed.
 
-This is the same sequence we did by hand earlier (airdrop 10000 NIGHT + register
-dust before the join worked). Attach mode automates it as a preflight.
+Exactly the sequence we did by hand earlier (airdrop 10000 NIGHT + register dust),
+now automated through the CLI.
+
+Packaging note: `mn` is only needed for the **attach** convenience path — the
+default **self-host** path (fresh clone, no localnet) needs none of it. For the
+public example we either (a) publish `mn` to npm and pin it as a devDependency, or
+(b) invoke `mn` if present and otherwise fall back to "set a funded
+`MIDNIGHT_WALLET_SEED`," so the example never hard-fails on a private package.
 
 ## Where it lives
 
@@ -90,9 +102,10 @@ dust before the join worked). Attach mode automates it as a preflight.
 
 ## Overrides (rare cases)
 
-- `MIDNIGHT_LOCALNET=self|attach|auto` (default `auto`) — force a mode.
-- `--reclaim` — allow killing an *unhealthy* orphan on the Midnight ports (never a
-  healthy one).
+- `MIDNIGHT_LOCALNET=self|attach|auto` (default `auto`) — force a mode; `self`
+  answers "yes, start one" without prompting.
+- Non-interactive / CI — no prompt; default to abort on incompatible/partial
+  unless a mode is forced.
 - Existing `MIDNIGHT_*` URL/seed env vars still repoint to a hosted chain.
 
 ## Failure modes → clear messages
@@ -117,11 +130,21 @@ dust before the join worked). Attach mode automates it as a preflight.
 - **Testable** — the same preflight lets `bun run test` attach to a running localnet
   (the current blocker), so tests stop fighting the dev localnet.
 
-## Open decisions (yours)
+## Decisions (settled)
 
-1. **Compatibility strictness** — attach only on exact generation match, or any
-   healthy `undeployed` node? (Looser = more convenient, riskier.)
-2. **Auto-fund on attach** — airdrop automatically, or require a funded seed and
-   just check? (Auto is smoother; explicit is more predictable.)
-3. **`--reclaim` for our own orphans** — include it, or always require the dev to
-   free a stuck port manually?
+1. **Compatibility is required.** Auto-attach only to a healthy `undeployed`
+   Midnight localnet at the versions anonboard targets; anything else = incompatible.
+2. **Incompatible / partial → notify + ask, never silent.** Say what's running vs
+   what anonboard needs, then offer to start the correct localnet — stopping the
+   running one only on an explicit "yes." CI defaults to abort.
+3. **Fund on attach via `mn`.** Add `midnight-wallet-cli` as a devDependency and
+   have it airdrop + register dust to the deploy wallet before deploy.
+
+## Implementation notes
+
+- The `mn` CLI is this repo's sibling project (`midnight-wallet-cli`). Confirm how
+  to reference it as a devDependency (npm if published, else git/file) as step one.
+- The interactive prompt lives in the `localnet-preflight` module (Node `readline`),
+  run before the orchestrator builds its process list; TTY-aware (skips in CI).
+- Keep the compatibility probe cheap and specific (network id + a version/genesis
+  signal) so a false "compatible" can't slip an incompatible chain through.
