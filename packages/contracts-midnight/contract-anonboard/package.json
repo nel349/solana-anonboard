@@ -1,5 +1,7 @@
 {
   "name": "@solana-anonboard/midnight-contract",
+  "version": "0.1.0",
+  "private": true,
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",

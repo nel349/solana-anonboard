@@ -2,7 +2,7 @@
 name = "anonboard"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 description = "Minimal Solana post program backing the anonboard example"
 resolver = "2"
 

@@ -1,7 +1,8 @@
-// Prove the Midnight `join` circuit in the browser and derive a member's public
-// key from a membership secret.
+// Prove the Midnight `join` circuit in the browser.
 //
-// The 32-byte secret never leaves the browser; the returned unbound tx carries no secret, so the operator can pay+submit blind.
+// The 32-byte member secret is used only to build the proof: it goes to the proof
+// server (localhost) as a private witness, but never to the operator, and it is
+// never a circuit argument nor part of the submitted transaction.
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { createUnprovenCallTx } from "@midnight-ntwrk/midnight-js-contracts";
@@ -9,15 +10,14 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
-  persistentHash,
-  CompactTypeVector,
-  CompactTypeBytes,
-} from "@midnight-ntwrk/compact-runtime";
-import {
   Anonboard,
   createAnonboardPrivateState,
   witnesses,
+  deriveMemberPublicKey,
 } from "../../../contracts-midnight/contract-anonboard/src/_index.ts";
+// Re-exported so callers (App.tsx) keep importing it from here; the derivation
+// itself is single-sourced in the contract package (member-key.ts).
+export { deriveMemberPublicKey };
 import {
   buildBrowserProviders,
   FetchZKConfigProvider,
@@ -32,20 +32,6 @@ const NETWORK = {
   proofServer: "http://127.0.0.1:6300",
 };
 const PRIVATE_STATE_ID = "anonboardMemberState";
-
-function pad32(s: string): Uint8Array {
-  const b = new Uint8Array(32);
-  b.set(new TextEncoder().encode(s));
-  return b;
-}
-
-// public_key(sk) = persistentHash<Vector<2,Bytes<32>>>([pad(32,"anonboard:pk:"), sk]).
-// Must match the circuit (anonboard.compact) and scripts/blind-join.ts exactly,
-// so the derived key equals what add_to_roster stores.
-export function deriveMemberPublicKey(secret: Uint8Array): Uint8Array {
-  const t = new CompactTypeVector(2, new CompactTypeBytes(32));
-  return persistentHash(t as never, [pad32("anonboard:pk:"), secret] as never);
-}
 
 export function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -105,8 +91,8 @@ export async function joinViaWallet(
   setNetworkId(NETWORK.id);
 
   // Requires the wallet to hold usable dust — stale dust historically surfaced as
-  // InvalidDustSpendProof(170) at the node. The operator-blind alternative is
-  // proveJoin + operator /submit (headless: scripts/blind-join.ts).
+  // InvalidDustSpendProof(170) at the node. The headless operator-blind path is
+  // scripts/blind-join.ts.
   const addrs = await wallet.getShieldedAddresses();
   const zkConfig = new FetchZKConfigProvider("/anonboard");
   const privateStateProvider = new InMemoryPrivateStateProvider();

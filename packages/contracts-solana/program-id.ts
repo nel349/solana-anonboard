@@ -3,5 +3,6 @@
 export const POST_PROGRAM_ID =
   "8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6" as const;
 
-/** Discriminant byte — must match the Rust program. */
+/** First instruction-data byte selecting the Post instruction. Arbitrary but
+ *  fixed; must match `DISCRIMINANT_POST` in the Rust program (lib.rs). */
 export const DISCRIMINANT_POST = 2;

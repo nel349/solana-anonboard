@@ -61,7 +61,9 @@ function loadOrCreateSecretForWallet(coinPublicKey: string): Uint8Array {
   if (saved) {
     try {
       return Uint8Array.from(JSON.parse(saved));
-    } catch {}
+    } catch (e) {
+      console.warn("[anonboard] stored member secret unreadable, regenerating:", e);
+    }
   }
   const sk = crypto.getRandomValues(new Uint8Array(32));
   localStorage.setItem(key, JSON.stringify(Array.from(sk)));
@@ -73,7 +75,9 @@ function loadOrCreateBadge(): Keypair {
   if (saved) {
     try {
       return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(saved)));
-    } catch {}
+    } catch (e) {
+      console.warn("[anonboard] stored badge unreadable, regenerating:", e);
+    }
   }
   const kp = Keypair.generate();
   localStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(Array.from(kp.secretKey)));
@@ -119,6 +123,14 @@ export function App() {
     const tick = async () => {
       try {
         const [pRes, bRes] = await Promise.all([fetch(POSTS_URL), fetch(BADGES_URL)]);
+        // On a backend error keep the last-known feed/membership rather than
+        // flipping the board to empty and the badge to "not a member".
+        if (!pRes.ok || !bRes.ok) {
+          console.error(
+            `[anonboard] feed fetch failed (posts ${pRes.status}, badges ${bRes.status}); keeping last state`,
+          );
+          return;
+        }
         const pJson = await pRes.json();
         const bJson = await bRes.json();
         if (!alive) return;
@@ -128,7 +140,10 @@ export function App() {
         setOptimistic((prev) =>
           prev.filter((o) => !realPosts.some((p) => p.body === o.body && p.author === badgePk)),
         );
-      } catch {}
+      } catch (e) {
+        // Transient network error — keep last state, surface for debugging.
+        console.error("[anonboard] feed poll error:", e);
+      }
     };
     tick();
     // Poll the feed every 500ms so the board reflects the sub-second sync
@@ -148,7 +163,9 @@ export function App() {
       try {
         const lamports = await conn.getBalance(SPONSOR, "confirmed");
         if (alive) setSponsorSol(lamports / LAMPORTS_PER_SOL);
-      } catch {}
+      } catch (e) {
+        console.error("[anonboard] sponsor balance read failed:", e);
+      }
     };
     tick();
     const h = setInterval(tick, 5000);
@@ -373,6 +390,7 @@ export function App() {
           value={draft}
           maxLength={MAX_BODY}
           placeholder="Say something…"
+          aria-label="Post body"
           onChange={(e) => setDraft(e.target.value)}
           disabled={busy}
         />
@@ -384,7 +402,16 @@ export function App() {
             {busy ? "Posting…" : "Post — you pay 0 SOL"}
           </button>
         </div>
-        {status.msg && <p className={`status ${status.kind}`}>{status.msg}</p>}
+        {status.msg && (
+          // Primary feedback channel — announce to screen readers (assertive for
+          // errors) and don't rely on color alone.
+          <p
+            className={`status ${status.kind}`}
+            role={status.kind === "err" ? "alert" : "status"}
+          >
+            {status.msg}
+          </p>
+        )}
       </section>
 
       <section className="feed">

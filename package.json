@@ -15,6 +15,9 @@
     "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
     "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
     "test": "bun run packages/tests/run-tests.ts",
+    "test:unit": "bun test packages/node/test packages/database/test",
+    "test:contract": "bun test packages/contracts-midnight/contract-anonboard/test",
+    "typecheck": "tsc --noEmit",
     "postinstall": "bun run scripts/dedupe-midnight-wasm.ts"
   },
   "dependencies": {

@@ -30,17 +30,13 @@ import {
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import {
-  persistentHash,
-  CompactTypeVector,
-  CompactTypeBytes,
-} from "@midnight-ntwrk/compact-runtime";
 import { Transaction as LedgerTx } from "@midnight-ntwrk/ledger-v8";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   Anonboard,
   createAnonboardPrivateState,
   witnesses,
+  deriveMemberPublicKey,
 } from "../packages/contracts-midnight/contract-anonboard/src/_index.ts";
 import { OWNER_SECRET_KEY } from "../packages/contracts-midnight/owner-key.ts";
 
@@ -49,15 +45,6 @@ const log = (s: string, m: string) => console.log(`\n[${s}] ${m}`);
 // MEMBER_BYTE picks an unspent member each run — join burns a one-shot nullifier.
 const MEMBER_SECRET_KEY = new Uint8Array(32);
 MEMBER_SECRET_KEY[31] = Number(process.env.MEMBER_BYTE ?? "7");
-function pad32(s: string): Uint8Array {
-  const b = new Uint8Array(32);
-  b.set(new TextEncoder().encode(s));
-  return b;
-}
-function memberPublicKey(sk: Uint8Array): Uint8Array {
-  const t = new CompactTypeVector(2, new CompactTypeBytes(32));
-  return persistentHash(t as any, [pad32("anonboard:pk:"), sk] as any);
-}
 
 async function main() {
   setNetworkId(midnightNetworkConfig.id);
@@ -110,7 +97,7 @@ async function main() {
     privateStateId: "anonboardAdminState",
     initialPrivateState: createAnonboardPrivateState(OWNER_SECRET_KEY),
   } as never);
-  const memberPk = memberPublicKey(MEMBER_SECRET_KEY);
+  const memberPk = deriveMemberPublicKey(MEMBER_SECRET_KEY);
   const ledger0 = Anonboard.ledger(
     (await adminProviders.publicDataProvider.queryContractState(info.contractAddress))!.data,
   );

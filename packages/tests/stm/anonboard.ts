@@ -29,11 +29,6 @@ import {
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import {
-  persistentHash,
-  CompactTypeVector,
-  CompactTypeBytes,
-} from "@midnight-ntwrk/compact-runtime";
 import { Transaction as LedgerTx } from "@midnight-ntwrk/ledger-v8";
 import {
   Connection,
@@ -47,6 +42,7 @@ import {
   Anonboard,
   createAnonboardPrivateState,
   witnesses,
+  deriveMemberPublicKey,
 } from "../../contracts-midnight/contract-anonboard/src/_index.ts";
 import { OWNER_SECRET_KEY } from "../../contracts-midnight/owner-key.ts";
 import {
@@ -68,19 +64,6 @@ const ZK_CONFIG_PATH = path.resolve(
   CONTRACT_DIR,
   "contract-anonboard/src/managed",
 );
-
-// ── Member pubkey derivation — copied exactly from scripts/blind-join.ts.
-// Same persistentHash the circuit uses (public_key in anonboard.compact). ──
-function pad32(s: string): Uint8Array {
-  const b = new Uint8Array(32);
-  b.set(new TextEncoder().encode(s));
-  return b;
-}
-
-export function memberPublicKey(sk: Uint8Array): Uint8Array {
-  const t = new CompactTypeVector(2, new CompactTypeBytes(32));
-  return persistentHash(t as any, [pad32("anonboard:pk:"), sk] as any);
-}
 
 // A fresh 32-byte member secret (random) so its one-shot nullifier never
 // collides across reruns against the persistent Midnight chain.
@@ -180,7 +163,7 @@ export async function operatorBlindJoin(
   memberSecret: Uint8Array,
   badgePubkey: PublicKey,
 ): Promise<string> {
-  const memberPk = memberPublicKey(memberSecret);
+  const memberPk = deriveMemberPublicKey(memberSecret);
 
   // ── Owner maintenance: put the member on the roster (idempotent). ──
   const ledger = await queryLedger(ctx);

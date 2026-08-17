@@ -1,6 +1,7 @@
 {
   "name": "@solana-anonboard/contracts-midnight",
   "version": "1.0.0",
+  "private": true,
   "exports": {},
   "scripts": {
     "midnight-node:build-spec": "(cd ../../node_modules/@effectstream/npm-midnight-node/midnight-node && CFG_PRESET=dev ./midnight-node build-spec --dev) > dev-spec.json",

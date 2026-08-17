@@ -1,0 +1,32 @@
+# Minimal CI: fast, deterministic checks that need neither the Midnight/Solana
+# toolchains nor a localnet — the pure unit suites (parsers, DB idempotency) plus
+# an advisory typecheck. The contract suite (test:contract) and the E2E (test)
+# need the compact compiler / a full localnet and run locally, not here.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+# Least privilege: this workflow only reads the repo.
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      # TODO before going public: pin these actions to commit SHAs (supply-chain).
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - run: bun install --frozen-lockfile
+      - name: Unit tests (parsers + DB idempotency)
+        run: bun run test:unit
+      - name: Typecheck (advisory)
+        # The vendored EffectStream SDK ships raw .ts that doesn't type-check
+        # cleanly (see tsconfig.json); this surfaces app-code type issues without
+        # failing the build on SDK noise.
+        run: bun run typecheck
+        continue-on-error: true

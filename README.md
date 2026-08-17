@@ -21,14 +21,14 @@ Every accepted post is provably from a real member, and no post traces back to a
 | `contracts-midnight` | The Compact `anonboard` contract — roster, badges, and the `join` circuit that proves membership and burns a nullifier. |
 | `contracts-solana` | The Solana program that records posts (a `Post` instruction emitting one log line per post). |
 | `node` | The EffectStream sync node: mirrors Midnight badges into Postgres and runs the arbiter that accepts a post only if its author holds a badge. |
-| `operator` | Midnight-side service: registers members on the roster (`add_to_roster`). It can also pay+submit a browser-proven join **without seeing the membership secret** (operator-blind) — used by `scripts/blind-join.ts` and the tests; the UI's Join has the connected wallet pay+submit instead. |
+| `operator` | Midnight-side service: registers members on the roster (`add_to_roster`). It also exposes an operator-blind `/submit` (pay+submit a browser-proven join **without seeing the secret**) — a reference endpoint not wired into the shipped flows: the UI join is wallet-paid, and the headless `scripts/blind-join.ts` builds the join in-process. |
 | `batcher` | Solana fee-payer: co-signs and submits user-signed posts so the author never needs SOL. |
 | `frontend` | Vite + React UI: connect a Midnight wallet, join, and post. |
 | `database` | PGLite schema + typed queries for badges and posts. |
 
 ## Quickstart
 
-You need [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them. The stack binds fixed localhost ports, so these must be free (and bindable): `5432` (PGLite), `8899`/`9900` (Solana), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
+You need [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them. The stack binds fixed localhost ports, so these must be free (and bindable): `5432` (PGLite), `8899`/`9900` (Solana), `9999` (sync node API), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
 
 ```bash
 bun install
