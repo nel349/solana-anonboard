@@ -7,7 +7,8 @@
   },
   "scripts": {
     "compact": "compact compile +0.31.0 src/anonboard.compact src/managed",
-    "contract:compile": "bun run compact"
+    "contract:compile": "bun run compact",
+    "test": "bun test test/"
   },
   "type": "module",
   "dependencies": {

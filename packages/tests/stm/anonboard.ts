@@ -184,7 +184,7 @@ export async function operatorBlindJoin(
 
   // ── Owner maintenance: put the member on the roster (idempotent). ──
   const ledger = await queryLedger(ctx);
-  if (!ledger.roster.member(memberPk)) {
+  if (!ledger.roster.findPathForLeaf(memberPk)) {
     await ctx.admin.joined.callTx.add_to_roster(memberPk);
   }
 

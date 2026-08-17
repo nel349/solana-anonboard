@@ -114,7 +114,7 @@ async function main() {
   const ledger0 = Anonboard.ledger(
     (await adminProviders.publicDataProvider.queryContractState(info.contractAddress))!.data,
   );
-  if (!ledger0.roster.member(memberPk)) {
+  if (!ledger0.roster.findPathForLeaf(memberPk)) {
     log("admin", `add_to_roster(member ${Buffer.from(memberPk).toString("hex").slice(0, 12)}…)`);
     await (adminJoined as any).callTx.add_to_roster(memberPk);
   } else {

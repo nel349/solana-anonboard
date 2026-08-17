@@ -98,7 +98,7 @@ async function main() {
   const ownerPk = ledger.owner as Uint8Array;
   log("midnight", `owner pk ${Buffer.from(ownerPk).toString("hex").slice(0, 16)}…`);
 
-  if (!ledger.roster.member(ownerPk)) {
+  if (!ledger.roster.findPathForLeaf(ownerPk)) {
     log("midnight", "add_to_roster(owner) …");
     await joined.callTx.add_to_roster(ownerPk);
     log("midnight", "roster updated");

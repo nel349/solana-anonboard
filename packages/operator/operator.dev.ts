@@ -105,7 +105,12 @@ function isMemberOnRoster(r: Ready, memberPk: Uint8Array): Promise<boolean> {
     .then((s) => {
       if (!s) return false;
       const ledger = Anonboard.ledger(s.data as never);
-      return (ledger as { roster: { member(pk: Uint8Array): boolean } }).roster.member(memberPk);
+      // roster is a Merkle tree — membership = a path exists for the leaf.
+      return (
+        ledger as {
+          roster: { findPathForLeaf(pk: Uint8Array): unknown };
+        }
+      ).roster.findPathForLeaf(memberPk) !== undefined;
     });
 }
 

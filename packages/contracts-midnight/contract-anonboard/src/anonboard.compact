@@ -4,42 +4,71 @@ export {add_to_roster, join}
 
 import CompactStandardLibrary;
 
-// Set once, at deploy.
+// Set once, at deploy. The owner gates add_to_roster and is public on purpose.
 export ledger owner: Bytes<32>;
 
-// Public on purpose: being a member isn't the secret; what you post is.
-export ledger roster: Map<Bytes<32>, Boolean>;
+// The roster is a Merkle tree of member identity commitments (public_key(sk)).
+// Being a member isn't the secret — the leaves are public — but membership is
+// proven in zero knowledge at join time, disclosing only the tree ROOT, so a join
+// never reveals WHICH member it is. HistoricMerkleTree keeps past roots, so a path
+// taken before later members were added still validates. Depth 10 caps the roster
+// at 2^10 = 1024 members (plenty for the demo; raise the literal to grow it — it
+// must match the witness and merkleTreePathRoot calls below).
+export ledger roster: HistoricMerkleTree<10, Bytes<32>>;
 
 // Anonymous member badges: fresh Solana public keys, each bound to exactly one
-// roster member, with NO record of which one. This is the whole trick.
+// roster member, with NO on-chain record of which one. This is the whole trick.
 export ledger badges: Map<Bytes<32>, Boolean>;
 export ledger badge_count: Counter;
 
-// One badge per person. Not exported, so the sync node can never read it and
-// nobody can count or correlate joins.
+// One badge per person. A join discloses only its nullifier (a one-way hash of the
+// secret, unlinkable to the member) and the roster root — never the member's key —
+// so nobody can correlate a join to a member. Unexported so it can't be enumerated.
 ledger used: Map<Bytes<32>, Boolean>;
 
 witness private$secret_key(): Bytes<32>;
 
+// The caller's Merkle path in the roster, supplied by the DApp from public ledger
+// state (witnesses.ts: roster.findPathForLeaf(pk)). It stays PRIVATE — only the
+// root it hashes to is disclosed at join.
+witness roster_path(pk: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+// Identity commitment for a secret. NOT disclosed here: the value is made public
+// only where it must be (the owner), never for a member — that is what keeps a
+// join anonymous.
 circuit public_key(sk: Bytes<32>): Bytes<32> {
-  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "anonboard:pk:"), sk]));
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "anonboard:pk:"), sk]);
 }
 
 constructor() {
-  owner = public_key(private$secret_key());
+  // The owner is public (it gates add_to_roster), so disclosing it is intended.
+  owner = disclose(public_key(private$secret_key()));
 }
 
 circuit add_to_roster(member: Bytes<32>): [] {
-  assert(public_key(private$secret_key()) == owner, "only owner");
-  roster.insert(disclose(member), true);
+  // Owner-only. Disclosing the caller's key here reveals only that the caller is
+  // the owner (already public), not any member's key.
+  assert(disclose(public_key(private$secret_key())) == owner, "only owner");
+  roster.insert(disclose(member));
 }
 
-// Binds a throwaway Solana key to roster membership, disclosing the key and
-// nothing else — no identity attached.
+// Binds a throwaway Solana key to roster membership in zero knowledge: proves the
+// caller's secret belongs to a roster member WITHOUT disclosing which one. The only
+// values this circuit makes public are the roster root, the nullifier, and the badge.
 circuit join(solana_pubkey: Bytes<32>): [] {
   const sk = private$secret_key();
-  assert(roster.member(public_key(sk)), "not on the roster");
+  const pk = public_key(sk); // stays private — never disclosed
 
+  // Prove membership. The witnessed path must be for THIS caller's key — pk == leaf
+  // is checked in-circuit so a non-member can't borrow a real member's (public) path
+  // — and it must hash to a roster root the tree has held (checkRoot accepts historic
+  // roots). Only the root is disclosed; the root is identical for every member, so it
+  // reveals nothing about which one is joining.
+  const path = roster_path(pk);
+  assert(pk == path.leaf, "path is not for your key");
+  assert(roster.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))), "not on the roster");
+
+  // One badge per member: burn a one-shot nullifier derived from the secret.
   const nullifier = persistentHash<Vector<2, Bytes<32>>>([pad(32, "anonboard:nul:"), sk]);
   assert(!used.member(disclose(nullifier)), "already joined");
   used.insert(disclose(nullifier), true);

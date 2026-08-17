@@ -18,7 +18,8 @@ const badgePrefix = process.env.BADGE_PREFIX;
 if (badgePrefix) {
   console.log(`looking for ${badgePrefix}:`, badges.some(b=>b.startsWith(badgePrefix)));
 }
-const roster: string[] = [];
-for (const [k] of l.roster) roster.push(Buffer.from(k as Uint8Array).toString("hex").slice(0,12));
-console.log("roster members (hex):", roster);
+// roster is a Merkle tree, not an enumerable map — its leaves aren't listable.
+// Show its size and current root instead.
+console.log("roster size:", l.roster.firstFree().toString());
+console.log("roster root:", JSON.stringify(l.roster.root()));
 process.exit(0);

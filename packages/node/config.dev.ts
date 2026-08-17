@@ -111,7 +111,11 @@ export const config = new ConfigBuilder()
           contract: { ledger: AnonboardContract.ledger },
           ledgerSchema: {
             owner: "bytes",
-            roster: { type: "map", value: "boolean" },
+            // roster is a HistoricMerkleTree, not parsed here (this positional
+            // schema has no Merkle type). The sync node only needs `badges`;
+            // "bytes" is a harmless placeholder that keeps badges at the right
+            // index (parses to null — a MerkleTree StateValue isn't a cell).
+            roster: "bytes",
             badges: { type: "map", value: "boolean" },
             badge_count: "uint64",
           },
