@@ -1,6 +1,12 @@
-# Orchestration — how the dev/test stack runs, and why it fights your localnet
+# Orchestration — how the dev/test stack runs
 
-Internal notes. Gitignored. The goal: understand exactly what `bun run dev` and
+> **Superseded (2026-08-16).** The stack no longer kills a running localnet: the
+> preflight (`localnet-preflight.ts`) attaches to a healthy `undeployed` localnet
+> or self-hosts one, self-host strips `stopProcessAtPort` so no shared port is
+> force-freed, and the indexer is supervised for restart. The collision analysis
+> below is kept for history — see LOCALNET-DESIGN.md "Implemented" for what shipped.
+
+Internal notes (private repo only; excluded from the public example). The goal: understand exactly what `bun run dev` and
 `bun run test` start, why they kill an already-running Midnight localnet, and
 what a cleaner "attach to an existing localnet" design looks like.
 
@@ -56,8 +62,8 @@ Grouped as the helpers group them. Ports in **bold** are the ones with
 ### Solana — `launchSolana(@solana-anonboard/node)`
 | process | what it runs | port | waits on |
 |---|---|---|---|
-| `build-counter` | compiles the Solana program `.so` | — | — |
-| `solana-validator` | local `solana-test-validator` | **8899, 9900** | build-counter |
+| `build-anonboard` | compiles the Solana program `.so` | — | — |
+| `solana-validator` | local `solana-test-validator` | **8899, 9900** | build-anonboard |
 | `solana-validator-wait` | tcp wait on 8899 | — | solana-validator |
 
 ### Midnight localnet — `launchMidnight(@solana-anonboard/contracts-midnight)`

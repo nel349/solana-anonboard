@@ -157,10 +157,13 @@ from the plan (self-host spreads node/indexer/proof/deploy with `stopProcessAtPo
 stripped; attach = `midnight-fund` + deploy). `midnight-wallet-cli` (`mn`) is a
 devDependency and `scripts/midnight-fund.ts` does the attach-mode airdrop
 (best-effort, non-blocking — on a standard `undeployed` chain the deploy wallet is
-the genesis wallet, so it's a no-op). One simplification vs the spec: the
-interactive "notify + ask" prompt isn't built — partial/unhealthy **aborts with
-guidance** (still never kills), and `MIDNIGHT_LOCALNET=self|attach|auto` forces a
-mode.
+the genesis wallet, so it's a no-op). The **compatibility gate is implemented**:
+before attaching, the probe checks `system_chain` and refuses to attach to a
+healthy-but-wrong network (must be `undeployed`) — so a preprod/preview localnet on
+the same ports aborts with guidance instead of a silent (HRP-breaking) attach. One
+simplification vs the spec: the interactive "notify + ask" prompt isn't built —
+partial/unhealthy and incompatible both **abort with guidance** (still never kills),
+and `MIDNIGHT_LOCALNET=self|attach|auto` forces a mode.
 
 Four cold-boot gotchas cost real debugging time getting `bun run test` green on an
 arm64 Mac. All are in the vendored stack, none in app code:

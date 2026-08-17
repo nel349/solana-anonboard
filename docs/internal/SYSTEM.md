@@ -1,6 +1,6 @@
 # anonboard — how the whole system works
 
-Internal reference. Gitignored. Read this first if you're new: it's the end-to-end
+Internal reference (private repo only; excluded from the public example). Read this first if you're new: it's the end-to-end
 story of what anonboard does, on both chains, and how the pieces fit. It's the
 "why and how," not the run instructions — for booting the stack see
 `docs/internal/orchestration.md`; for the visual language see
@@ -122,19 +122,23 @@ The two circuits:
 The result: a proof that "some roster member" bound this fresh Solana key as a
 badge — with the member↔badge link unrecoverable, and no member able to mint two.
 
-**Operator-blind join** (`scripts/blind-join.ts`, `packages/operator/operator.dev.ts`,
-and `packages/frontend/src/midnight/join.ts`). Splitting proving from paying is
-what makes "the operator never sees your secret" real:
-- **Party A (the member / the browser)** holds the secret. It builds the `join`
-  call, **proves it locally** (the witness is consumed by proving), and serializes
-  an *unbound* transaction. The secret is not in those bytes.
-- **Party B (the operator)** receives only the unbound hex + its own paying keys.
-  It `balanceUnboundTransaction` + finalizes + submits — paying the Midnight fees
-  (dust) — **without ever seeing the secret**.
+**Join keeps the secret with the prover.** The 32-byte member secret is used only
+to *prove* the `join` circuit — it is a private witness, never a circuit argument
+nor part of the submitted transaction — so whoever pays and submits never sees it.
+Membership itself is proven in zero knowledge against a Merkle roster, so the join
+discloses only the roster root, a nullifier, and the badge — never *which* member
+(see Mechanism 1 / `anonboard.compact`). Two variants:
+- **UI** (`packages/frontend/src/midnight/join.ts`): the browser proves the join,
+  then the connected wallet balances (pays) and submits it.
+- **Headless** (`scripts/blind-join.ts`): a separate payer wallet balances +
+  submits the browser-proven unbound transaction blind.
+
+The operator (`packages/operator/operator.dev.ts`) only registers the member's
+public key on the roster (owner-only `add_to_roster`) — it never sees a secret.
 
 ## 5. Mechanism 2 — Posting, on Solana
 
-The program: `packages/contracts-solana/programs/counter/src/lib.rs` (the dir is
+The program: `packages/contracts-solana/programs/anonboard/src/lib.rs` (the dir is
 historically named "counter"; it now also has the Post instruction).
 
 - A `Post(body)` instruction emits one log line:
@@ -256,7 +260,7 @@ operator, batcher, frontend on :5173). The full launcher story, ports, and the
 |---|---|
 | Membership circuit | `contracts-midnight/contract-anonboard/src/anonboard.compact` |
 | Deploy | `contracts-midnight/deploy.ts` |
-| Solana post program | `contracts-solana/programs/counter/src/lib.rs` |
+| Solana post program | `contracts-solana/programs/anonboard/src/lib.rs` |
 | Post instruction builder | `contracts-solana/src/instructions.ts` |
 | Sync config (chains, primitives) | `node/config.dev.ts` |
 | **Arbiter + badge mirror** | `node/state-machine.ts` |

@@ -1,5 +1,12 @@
 # solana-anonboard — Delivery Plan
 
+> **Historical (2026-08-15 snapshot).** Many items below are done — the
+> counter→anonboard rename, attach/self-host refactor, ported tests, NOTICE, dist
+> ignore, poster.json untracking, the Merkle anonymity fix, and the code-review
+> follow-ups (silent-failure handling, insertPost idempotency, preflight compat
+> gate, dead-code removal, tsconfig/CI). Treat this as a point-in-time plan; the
+> git log is the source of truth.
+
 Internal. The checklist to get the repo **perfect before delivering to DevRel**.
 Based on a full-repo audit (code/build health + delivery/hygiene), 2026-08-15.
 
@@ -22,7 +29,7 @@ Work top-down. Check items off in place.
   `POST_PROGRAM_ID`; parameterized the read-state.ts hardcode. Verified: bun
   install, transpile, `bun run build:solana` (same program id).
 - **Repo hygiene** (`afd730d`) — package.json metadata; documented the committed
-  dev keypairs (batcher + program); fixed the counter.so gitignore contradiction
+  dev keypairs (batcher + program); fixed the anonboard.so gitignore contradiction
   (build-on-demand); untracked the built frontend `dist/`; reworded stale comments.
 - **Publish** — docs relocated to `docs/internal/` + made tracked; `poster.json`
   (a committed keypair) untracked; repo pushed **private** with full history.
@@ -31,7 +38,7 @@ Work top-down. Check items off in place.
 
 - **P0:** sign the commits (needs your key) · attach refactor + tests green
   (needs a localnet; coordinate ports).
-- **Deferred:** rename the `programs/counter` dir/crate (couples to `.so` + keypair).
+- **Deferred:** rename the `programs/anonboard` dir/crate (couples to `.so` + keypair).
 - **Open decisions:** wire the design system into the frontend · scrub history
   before any public release · CI · workspace-version alignment.
 
@@ -58,7 +65,7 @@ Work top-down. Check items off in place.
 An external reviewer opening "the Solana program" or the DB currently sees mostly
 counter code. Remove the dead template code:
 
-- [ ] **Rust program** — trim `contracts-solana/programs/counter/src/lib.rs` to
+- [ ] **Rust program** — trim `contracts-solana/programs/anonboard/src/lib.rs` to
       the `Post` path; delete Increment/Reset/PDA/`EFFECTSTREAM_COUNTER` logic.
 - [ ] **Node API** — delete the dead endpoints in `node/api.ts`:
       `/api/counter/:authority`, `/api/counters`, `/api/counter-events`.
@@ -73,16 +80,16 @@ counter code. Remove the dead template code:
 - [ ] **Rename the identifier** `COUNTER_PROGRAM_ID` → `POST_PROGRAM_ID` (used in
       `node/config.dev.ts`, `node/state-machine.ts`); drop the unused re-export at
       `config.dev.ts` bottom.
-- [ ] **Rename the program dir** `programs/counter/` → `programs/anonboard/`, and
-      the `build-counter` process / `counter.so` refs (`start.dev.ts`,
+- [ ] **Rename the program dir** `programs/anonboard/` → `programs/anonboard/`, and
+      the `build-anonboard` process / `anonboard.so` refs (`start.dev.ts`,
       `start.test.ts`, `run-tests.ts`).
 - [ ] **Remove scratch value** — `scripts/read-state.ts:17` hardcodes a one-run
       badge prefix `"81itZYcw"`. Parameterize or delete the helper.
 
 ## P1 — Hygiene
 
-- [ ] **Resolve `counter.so` vs `.gitignore`.** `packages/contracts-solana/.gitignore`
-      un-ignores `/build/counter.so` and says "committed on purpose," but no `.so`
+- [ ] **Resolve `anonboard.so` vs `.gitignore`.** `packages/contracts-solana/.gitignore`
+      un-ignores `/build/anonboard.so` and says "committed on purpose," but no `.so`
       is tracked. Decide: commit the binary, **or** drop the un-ignore + fix the
       comment (build-on-demand already works). Recommend the latter for a clean example.
 - [ ] **Document the batcher fee-payer key.** `packages/batcher/keypair/batcher-wallet.json`

@@ -1,5 +1,10 @@
 # solana-anonboard — Contribution Readiness
 
+> **Point-in-time snapshot; partly superseded.** The test suite was ported to the
+> membership/badge/post flow, the counter→anonboard rename is complete, and the
+> Merkle anonymity fix + review follow-ups landed — so specific "not done" items
+> below may be stale. See the git log for current state.
+
 Runs the project against the **Midnight Contribution Playbook**
 (`nel349/midnight-contribution-playbook`) — the study of what the five maintainers
 (JAlbertcode, nstanford5, Olanetsoft, gilescope, laurenelee) actually block on.
@@ -44,7 +49,7 @@ Legend: ✅ done · ⚠️ partial · ❌ open · ⬜ N/A
 ## Open decisions (not blockers, your call)
 
 - **`tests/` still exercises the counter suite**, not the membership/badge/post flow. An example should test its actual behavior — worth porting.
-- **`counter.so` vs `.gitignore` contradiction:** `.gitignore` un-ignores it and says "committed on purpose," but it isn't tracked. Either commit the binary or drop the un-ignore + fix the comment (build-on-demand already works).
+- **`anonboard.so` vs `.gitignore` contradiction:** `.gitignore` un-ignores it and says "committed on purpose," but it isn't tracked. Either commit the binary or drop the un-ignore + fix the comment (build-on-demand already works).
 - **`scripts/read-state.ts`** hardcodes a one-run badge prefix — parameterize or drop.
 
 ---

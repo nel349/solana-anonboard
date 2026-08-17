@@ -32,3 +32,9 @@ contract-anonboard.*.json
 contract.json
 badge.json
 .DS_Store
+
+# Internal working docs + task tracker — kept in this (private) repo, but MUST NOT
+# ship in the public example. Listing them here excludes them when the public repo
+# is seeded from a clean copy (git init && git add .). They remain tracked here.
+docs/internal/
+tasks/
