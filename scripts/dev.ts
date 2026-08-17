@@ -97,7 +97,18 @@ function shutdown(sig: NodeJS.Signals) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 child.on("exit", (code) => {
-  if (!stopping && code) {
+  if (stopping) { process.exit(code ?? 0); return; }
+  // The orchestrator returns (rather than staying foreground) when it attached to an
+  // already-running localnet — its long-running services are managed in the background.
+  // The stack is still up; say so instead of silently dropping to a prompt.
+  if (ready && (code ?? 0) === 0) {
+    process.stdout.write(
+      `\n${c.dim}The stack is running in the background (attached to a running localnet).\n` +
+      `  status: bun run dev:status   logs: bun run dev:logs   stop: bun run dev:stop${c.reset}\n\n`,
+    );
+    process.exit(0);
+  }
+  if (code) {
     process.stdout.write(
       `\n${c.red}The stack exited early (code ${code}).${c.reset} Last logs:\n` +
       `${c.dim}${logTail.split("\n").slice(-14).join("\n")}${c.reset}\n` +
@@ -167,7 +178,7 @@ function banner() {
     line("Operator", "http://localhost:3335") + "\n" +
     line("Batcher", "http://localhost:3334") + "\n" +
     `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}\n\n` +
-    `  ${c.dim}logs:${c.reset} bun run dev:logs      ${c.dim}stop:${c.reset} Ctrl-C\n\n`,
+    `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} bun run dev:stop  ${c.dim}(or Ctrl-C if still attached)${c.reset}\n\n`,
   );
 }
 

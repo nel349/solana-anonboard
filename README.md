@@ -51,7 +51,7 @@ From there: connect Lace or 1AM, click **Join** (the operator registers your mem
 | Operator | http://localhost:3335 |
 | Midnight node / indexer / proof server | :9944 · :8088 · :6300 |
 
-To wipe the local chain and start clean: `bun run --filter @solana-anonboard/contracts-midnight midnight:reset`.
+The boot shows a live checklist and ends when everything is up. Logs stream to `.dev.log` — follow them with `bun run dev:logs`. Check the running stack from any terminal with `bun run dev:status`, and stop it (fully, freeing all ports) with `bun run dev:stop`. To wipe the local chain and start clean: `bun run --filter @solana-anonboard/contracts-midnight midnight:reset`.
 
 There are also headless scripts for the same flow without the UI: `scripts/demo.ts` (end-to-end), `scripts/blind-join.ts` (operator-blind join), `scripts/gasless-post.ts` (gasless post).
 

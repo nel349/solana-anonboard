@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "bun run scripts/dev.ts",
   "dev:logs": "tail -n +1 -f .dev.log",
+  "dev:status": "bunx orchestrator status",
+  "dev:stop": "bun run scripts/dev-stop.ts",
   "dev:raw": "NODE_ENV=development bunx orchestrator start",
     "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
     "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
