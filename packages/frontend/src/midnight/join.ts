@@ -5,10 +5,9 @@
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { createUnprovenCallTx } from "@midnight-ntwrk/midnight-js-contracts";
-import { createProofProvider } from "@midnight-ntwrk/midnight-js-types";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
-import { CostModel } from "@midnight-ntwrk/ledger-v8";
 import {
   persistentHash,
   CompactTypeVector,
@@ -136,14 +135,13 @@ export async function joinViaWallet(
     privateStateId: PRIVATE_STATE_ID,
   } as never);
 
-  // Witness was resolved locally in the unproven build; the proof server never sees the secret.
-  const provingProvider = await wallet.getProvingProvider(
-    (zkConfig as unknown as { asKeyMaterialProvider(): unknown }).asKeyMaterialProvider(),
-  );
-  const proofProvider = createProofProvider(
-    provingProvider as never,
-    CostModel.initialCostModel() as never,
-  );
+  // The witness (member secret) is resolved locally in the unproven build, so
+  // proving needs only the proof server — do it in the browser (the secret never
+  // leaves it). This is the same browser-side proving as proveJoin, and it works
+  // with any wallet: the wallet is used only to pay (balance) and submit, not to
+  // prove. (Delegating proving to the wallet needlessly required a proving-capable
+  // connector — e.g. it fails over a WebSocket dev wallet.)
+  const proofProvider = httpClientProofProvider(NETWORK.proofServer, zkConfig);
   const unbound = await proofProvider.proveTx(
     (unproven as never as { private: { unprovenTx: unknown } }).private.unprovenTx as never,
   );

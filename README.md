@@ -41,7 +41,7 @@ bun run dev
 http://localhost:5173
 ```
 
-From there: connect Lace or 1AM, click **Join** (the operator registers your membership key, then your wallet proves membership in the browser and signs, pays, and submits the join), then post. A post from a badge holder is accepted; a post from a stranger is rejected — both are shown, so you can see the check working.
+From there: connect Lace or 1AM, click **Join** (the operator registers your membership key, then membership is proved in your browser — the secret never leaves it — and your wallet pays and submits the join), then post. A post from a badge holder is accepted; a post from a stranger is rejected — both are shown, so you can see the check working.
 
 | Service | URL |
 |---|---|
