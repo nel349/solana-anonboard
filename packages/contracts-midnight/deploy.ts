@@ -7,7 +7,10 @@ import {
   witnesses,
 } from "./contract-anonboard/src/_index.ts";
 
-import { OWNER_SECRET_KEY } from "./owner-key.ts";
+import { OWNER_SECRET_KEY, assertLocalOwnerKey } from "./owner-key.ts";
+
+// Never deploy with the committed dev owner key on anything but the local chain.
+assertLocalOwnerKey(midnightNetworkConfig.id);
 
 const config: DeployConfig = {
   contractName: "contract-anonboard",

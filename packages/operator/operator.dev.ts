@@ -17,7 +17,10 @@ import {
   createAnonboardPrivateState,
   witnesses,
 } from "../contracts-midnight/contract-anonboard/src/_index.ts";
-import { OWNER_SECRET_KEY } from "../contracts-midnight/owner-key.ts";
+import { OWNER_SECRET_KEY, assertLocalOwnerKey } from "../contracts-midnight/owner-key.ts";
+
+// Fail fast: never run the operator with the committed dev owner key off localnet.
+assertLocalOwnerKey(midnightNetworkConfig.id);
 
 const PORT = Number(process.env.OPERATOR_PORT ?? "3335");
 const log = (m: string) => console.log(`[operator] ${m}`);

@@ -12,7 +12,7 @@ An anonymous bulletin board where the **right to post is proven privately on Mid
 - **Posting happens on Solana**, where it's fast and cheap. Midnight holds only the right to speak; the speech lives on the chain built for volume.
 - **The EffectStream state machine joins the two.** It mirrors the badge set from Midnight's public ledger and reads posts from the Solana program log, and **accepts a post only if its signer holds a badge.**
 
-Every accepted post is provably from a real member, and no post traces back to a person — not even for whoever runs the servers. The privacy rests on one detail: the nullifier map that enforces one-badge-per-member is **not exported** from the contract, so the sync node can never read it and joins can't be counted or correlated. In Compact, what a circuit exports is exactly what the rollup gets to see.
+Every accepted post is provably from a member on the roster, and no post traces back to a person — not even for whoever runs the servers. The privacy rests on one detail: the nullifier map that enforces one-badge-per-member is **not exported** from the contract, so the sync node can never read it and joins can't be counted or correlated. In Compact, what a circuit exports is exactly what the rollup gets to see.
 
 ## How it fits together
 
@@ -20,7 +20,7 @@ Every accepted post is provably from a real member, and no post traces back to a
 |---|---|
 | `contracts-midnight` | The Compact `anonboard` contract — roster, badges, and the `join` circuit that proves membership and burns a nullifier. |
 | `contracts-solana` | The Solana program that records posts (a `Post` instruction emitting one log line per post). |
-| `node` | The EffectStream sync node: mirrors Midnight badges into Postgres and runs the arbiter that accepts a post only if its author holds a badge. |
+| `node` | The EffectStream sync node: mirrors Midnight badges into PGLite (embedded Postgres) and runs the arbiter that accepts a post only if its author holds a badge. |
 | `operator` | Midnight-side service: registers a member's public key on the roster (owner-only `add_to_roster`) — it never sees the member's secret. The UI join is wallet-paid; the headless operator-blind variant lives in `scripts/blind-join.ts`. |
 | `batcher` | Solana fee-payer: co-signs and submits user-signed posts so the author never needs SOL. |
 | `frontend` | Vite + React UI: connect a Midnight wallet, join, and post. |
@@ -57,7 +57,7 @@ There are also headless scripts for the same flow without the UI: `scripts/demo.
 
 ## Verified against
 
-The contract compiles and the loop runs end-to-end (browser-verified 2026-08-08) against:
+The contract compiles and the loop runs end-to-end (verified 2026-08-17 — E2E suite green, 20/20) against:
 
 | Component | Version |
 |---|---|
@@ -72,7 +72,8 @@ The contract compiles and the loop runs end-to-end (browser-verified 2026-08-08)
 This is an example on a local dev chain, not a production build:
 
 - **Dev-only trust:** a single funded operator wallet, permissive CORS, and no auth. The membership secret lives in the browser's `localStorage` for the demo — a real build must encrypt it.
-- **Committed dev keypairs:** the batcher fee-payer (`packages/batcher/keypair/batcher-wallet.json`) and the deterministic program id (`packages/contracts-solana/keypair/anonboard-program.json`) are committed on purpose so the localnet demo runs out of the box. Their secrets are public — they must **never** be funded or deployed on a real network.
+- **Open roster:** the ZK guarantees a post is from *a roster member* — but roster admission is not gated in the demo. The operator's `/register` (and owner-only `add_to_roster`) admit anyone who asks, so one person can mint many badges. The privacy holds regardless; "membership" is only as meaningful as the admission policy a real build puts in front of `add_to_roster`.
+- **Committed dev keypairs:** the batcher fee-payer (`packages/batcher/keypair/batcher-wallet.json`), the deterministic program id (`packages/contracts-solana/keypair/anonboard-program.json`), and the fixed owner key (`packages/contracts-midnight/owner-key.ts`) are committed on purpose so the localnet demo runs out of the box. Their secrets are public — they must **never** be funded or deployed on a real network. `deploy` and the operator refuse to run with the committed owner key on any network other than `undeployed`.
 - **Cross-chain ordering:** Midnight's sync catches up from block 1 while Solana is already current, so a post can arrive before its badge. The arbiter holds it and backfills to accepted once the badge lands (the `reason` string records which path a post took).
 - **Local validator retention:** the vendored Solana validator can't cap its ledger size, so a long-running localnet eventually prunes blocks the sync still needs and wedges. A fresh `bun run dev` resets both to slot 0.
 
