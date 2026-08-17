@@ -21,27 +21,27 @@ Every accepted post is provably from a real member, and no post traces back to a
 | `contracts-midnight` | The Compact `anonboard` contract — roster, badges, and the `join` circuit that proves membership and burns a nullifier. |
 | `contracts-solana` | The Solana program that records posts (a `Post` instruction emitting one log line per post). |
 | `node` | The EffectStream sync node: mirrors Midnight badges into Postgres and runs the arbiter that accepts a post only if its author holds a badge. |
-| `operator` | Midnight-side service: registers members on the roster and pays+submits browser-proven joins **without seeing the membership secret** (operator-blind). |
+| `operator` | Midnight-side service: registers members on the roster (`add_to_roster`). It can also pay+submit a browser-proven join **without seeing the membership secret** (operator-blind) — used by `scripts/blind-join.ts` and the tests; the UI's Join has the connected wallet pay+submit instead. |
 | `batcher` | Solana fee-payer: co-signs and submits user-signed posts so the author never needs SOL. |
 | `frontend` | Vite + React UI: connect a Midnight wallet, join, and post. |
 | `database` | PGLite schema + typed queries for badges and posts. |
 
 ## Quickstart
 
-You need [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them.
+You need [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them. The stack binds fixed localhost ports, so these must be free (and bindable): `5432` (PGLite), `8899`/`9900` (Solana), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
 
 ```bash
 bun install
 bun run dev
 ```
 
-`bun run dev` brings the whole stack up in dependency order — Solana validator, the Midnight local chain, the compiled contract (deployed once), the sync node, the operator, the gasless batcher, and the frontend. When it settles, open:
+`bun run dev` brings the whole stack up in dependency order — Solana validator, a Midnight localnet (it **attaches** to a healthy one already running on :9944/:8088/:6300, otherwise starts a fresh one — see `localnet-preflight.ts`), the compiled contract (deployed once), the sync node, the operator, the gasless batcher, and the frontend. When it settles, open:
 
 ```
 http://localhost:5173
 ```
 
-From there: connect Lace or 1AM, click **Join** (the operator registers your membership key and blind-submits the proof), then post. A post from a badge holder is accepted; a post from a stranger is rejected — both are shown, so you can see the check working.
+From there: connect Lace or 1AM, click **Join** (the operator registers your membership key, then your wallet proves membership in the browser and signs, pays, and submits the join), then post. A post from a badge holder is accepted; a post from a stranger is rejected — both are shown, so you can see the check working.
 
 | Service | URL |
 |---|---|

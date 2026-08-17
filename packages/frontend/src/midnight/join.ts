@@ -105,7 +105,9 @@ export async function joinViaWallet(
 ): Promise<void> {
   setNetworkId(NETWORK.id);
 
-  // Wallet-pays path fails at the node with InvalidDustSpendProof(170) on stale dust — app uses the operator-blind path instead.
+  // Requires the wallet to hold usable dust — stale dust historically surfaced as
+  // InvalidDustSpendProof(170) at the node. The operator-blind alternative is
+  // proveJoin + operator /submit (headless: scripts/blind-join.ts).
   const addrs = await wallet.getShieldedAddresses();
   const zkConfig = new FetchZKConfigProvider("/anonboard");
   const privateStateProvider = new InMemoryPrivateStateProvider();
