@@ -2,8 +2,8 @@
 
 Internal reference (private repo only; excluded from the public example). Read this first if you're new: it's the end-to-end
 story of what anonboard does, on both chains, and how the pieces fit. It's the
-"why and how," not the run instructions — for booting the stack see
-`docs/internal/orchestration.md`; for the visual language see
+"why and how," not the run instructions — for the localnet boot/attach design see
+`docs/internal/LOCALNET-DESIGN.md`; for the visual language see
 `docs/internal/design/DESIGN-SYSTEM.md`.
 
 ---
@@ -32,9 +32,8 @@ membership — any wallet can post, one message at a time. anonboard adds the
 
 ## 2. Is it functional right now?
 
-**Yes — as a proof of concept, verified end-to-end on localnet** (browser-verified
-2026-08-08; see `docs/internal/RESULT.md`). Mechanically, all four moving parts
-work:
+**Yes — as a proof of concept, verified end-to-end on localnet** (browser-verified).
+Mechanically, all four moving parts work:
 
 - A real Solana post program, gated by the arbiter. ✔
 - Gasless posting — the author holds **zero SOL**; a sponsor pays. ✔
@@ -251,8 +250,7 @@ posts optimistically (shows the post in ~50ms, reconciles from the feed).
 One command brings the whole stack up in dependency order:
 `bun run dev` (Solana validator, Midnight localnet + contract deploy, sync,
 operator, batcher, frontend on :5173). The full launcher story, ports, and the
-"attach to an existing localnet" refactor are in
-`docs/internal/orchestration.md`.
+self-host/attach design are in `docs/internal/LOCALNET-DESIGN.md`.
 
 ## 12. Where to look (file map)
 

@@ -1,8 +1,8 @@
 # Localnet — smart self-host / attach design
 
-Internal. Proposed design (for buy-in before implementing). Companion to
-`orchestration.md`, which describes the *current* (naive) mechanism and why it
-crashes an existing localnet.
+Internal. The self-host/attach design for the Midnight localnet — the sections
+below describe the plan, followed by "Implemented — reality & operational gotchas"
+covering what actually shipped.
 
 ## Goal
 
