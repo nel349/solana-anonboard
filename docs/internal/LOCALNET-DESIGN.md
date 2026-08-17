@@ -148,3 +148,46 @@ public example we either (a) publish `mn` to npm and pin it as a devDependency, 
   run before the orchestrator builds its process list; TTY-aware (skips in CI).
 - Keep the compatibility probe cheap and specific (network id + a version/genesis
   signal) so a false "compatible" can't slip an incompatible chain through.
+
+## Implemented — reality & operational gotchas
+
+The design above shipped. `localnet-preflight.ts` (`midnightPlan()`) probes and
+classifies; `start.dev.ts` + `packages/tests/start.test.ts` build the Midnight leg
+from the plan (self-host spreads node/indexer/proof/deploy with `stopProcessAtPort`
+stripped; attach = `midnight-fund` + deploy). `midnight-wallet-cli` (`mn`) is a
+devDependency and `scripts/midnight-fund.ts` does the attach-mode airdrop
+(best-effort, non-blocking — on a standard `undeployed` chain the deploy wallet is
+the genesis wallet, so it's a no-op). One simplification vs the spec: the
+interactive "notify + ask" prompt isn't built — partial/unhealthy **aborts with
+guidance** (still never kills), and `MIDNIGHT_LOCALNET=self|attach|auto` forces a
+mode.
+
+Four cold-boot gotchas cost real debugging time getting `bun run test` green on an
+arm64 Mac. All are in the vendored stack, none in app code:
+
+1. **Solana validator hung under Rosetta.** `@effectstream/solana-node` selects its
+   download arch via the `arch` npm package; `arch@2.x` mis-reports Apple Silicon as
+   x64 → it fetched the x86_64 validator → ran under Rosetta → hung forever at
+   "Waiting for fees to stabilize". Fix: `"overrides": { "arch": "^3.0.0" }` in root
+   `package.json` (delete the stale binary + reinstall) → it re-fetches
+   `solana-test-validator (darwin-arm64)`.
+
+2. **Indexer spo-indexer crash on a fresh chain.** indexer-standalone 4.3.3 bundles
+   an spo-indexer that can crash the whole indexer from `process_next_epoch`
+   ("...did not match any variant of untagged enum InvalidReasons") on a
+   freshly-wiped chain — a startup race the wrapper's block-#1 guard doesn't cover,
+   and intermittent (warm chains skip it). The orchestrator `ProcessConfig` has no
+   restart field, so `scripts/restart-on-failure.ts` supervises the indexer leg
+   (relaunch on non-zero/signal exit, pass a clean exit through, forward shutdown
+   signals) — the same remedy the Docker localnet uses (`restart: on-failure`).
+   Wrapped in both `start.dev.ts` and `start.test.ts`.
+
+3. **Deploy waits on dust accrual.** On a cold `undeployed` chain the deploy wallet
+   holds the 250M genesis NIGHT but 0 dust; the deploy logs "Waiting to receive
+   tokens... (timeout 600000ms)" until enough dust accrues from the held NIGHT.
+   Normal — it resolves in a few minutes, not a hang.
+
+4. **Validator 45-min pruning wedge.** `packages/node/chain-start.ts` uses
+   solana-node's `run()`, which can't cap ledger size; after ~45 min it prunes
+   blocks the sync still needs and wedges. Keep boot fast so a full run finishes well
+   under that; a fresh `bun run dev` resets to slot 0.

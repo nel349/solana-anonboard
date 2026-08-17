@@ -1,0 +1,9 @@
+solana-anonboard
+Copyright 2026 solana-anonboard contributors
+
+This project is licensed under the Apache License, Version 2.0; see LICENSE.
+
+Portions of this project — the Solana transaction round-trip, the fee-paying
+batcher, and the frontend scaffolding — are adapted from EffectStream's
+"solana-starter" template (https://effectstream.dev), used under the
+Apache License, Version 2.0.
