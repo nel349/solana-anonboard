@@ -8,8 +8,9 @@ import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type { FastifyInstance } from "fastify";
 
 // Reads during the startup window before migrations create tables throw 42P01;
-// the frontend polls on a loop, so treat missing-relation/transient errors as
-// "not ready" and return empty.
+// the frontend polls on a loop, so treat ONLY that as "not ready yet" and return
+// empty. Any other error is real and must surface as a 500 — a false-empty result
+// would make a member look like "not a member" and silently hide a broken DB.
 async function safeRead<T>(
   run: () => Promise<T[]>,
   label: string,
@@ -19,8 +20,8 @@ async function safeRead<T>(
   } catch (err) {
     const code = (err as { code?: string })?.code;
     if (code === "42P01") return []; // table not created yet — normal at startup
-    console.warn(`[api] ${label} read failed (${code ?? "unknown"}); returning empty`);
-    return [];
+    console.error(`[api] ${label} read failed (${code ?? "unknown"})`);
+    throw err;
   }
 }
 

@@ -27,12 +27,17 @@ async function ensureAppSchema(): Promise<void> {
   }
 }
 
-// Runtime swallows unhandled rejections (silent exit 1) — surface them.
+// A dead sync coroutine must NOT become a silent zombie that keeps answering the
+// API with stale data while no new posts/badges are folded. Log AND exit(1) so
+// the orchestrator (or any supervisor) surfaces the failure and can restart — a
+// log-only handler would suppress the runtime's own exit-on-unhandled-rejection.
 process.on("unhandledRejection", (e) => {
   console.error("[sync] UNHANDLED REJECTION:", e);
+  process.exit(1);
 });
 process.on("uncaughtException", (e) => {
   console.error("[sync] UNCAUGHT EXCEPTION:", e);
+  process.exit(1);
 });
 
 main(function* () {

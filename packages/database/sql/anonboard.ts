@@ -71,9 +71,13 @@ export interface IInsertPostParams {
   accepted: boolean;
   reason: string;
 }
+// Idempotent: a re-delivered log (reorg / re-sync) must not create a duplicate
+// row. DO NOTHING preserves the existing row, including any backfilled accepted
+// status (see acceptPostsForAuthor).
 export const insertPost = prepare<IInsertPostParams, void>(
   `INSERT INTO posts (author, body, slot, block_height, accepted, reason)
-VALUES (:author!, :body!, :slot!, :block_height!, :accepted!, :reason!)`,
+VALUES (:author!, :body!, :slot!, :block_height!, :accepted!, :reason!)
+ON CONFLICT (author, slot, body) DO NOTHING`,
 );
 
 export interface IGetPostsResult {
@@ -90,6 +94,11 @@ export const getAllPosts = prepare<Record<string, never>, IGetPostsResult>(
 FROM posts ORDER BY id DESC`,
 );
 
+// The reason written when a post's author has no badge yet. Single-sourced: the
+// arbiter writes it (state-machine.ts) and the backfill below matches on it, so a
+// drift would silently leave early posts rejected forever.
+export const REASON_NO_BADGE = "no midnight badge";
+
 // Ordering race: Midnight syncs from block 1 while Solana is current, so a post
 // can be rejected before its badge lands. Backfill those on badge arrival; idempotent.
 export interface IAcceptPostsForAuthorParams {
@@ -97,7 +106,7 @@ export interface IAcceptPostsForAuthorParams {
 }
 export const acceptPostsForAuthor = prepare<IAcceptPostsForAuthorParams, void>(
   `UPDATE posts SET accepted = true, reason = 'badge verified (backfilled)'
-WHERE author = :author! AND accepted = false AND reason = 'no midnight badge'`,
+WHERE author = :author! AND accepted = false AND reason = '${REASON_NO_BADGE}'`,
 );
 
 export interface IGetBadgesResult {

@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS posts (
   block_height INTEGER NOT NULL,
   accepted BOOLEAN NOT NULL,
   reason TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- A post is identified by (author, slot, body). Log re-delivery — a Solana
+  -- reorg, a re-sync against a retained DB, a manual reprocess — would otherwise
+  -- insert duplicate rows; this lets insertPost be idempotent (ON CONFLICT).
+  UNIQUE (author, slot, body)
 );
 
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts (author, id DESC);

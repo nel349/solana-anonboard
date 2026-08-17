@@ -1,9 +1,11 @@
 {
   "name": "@solana-anonboard/database",
   "version": "1.0.0",
+  "private": true,
   "exports": "./mod.ts",
   "scripts": {
-    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts",
+    "test": "bun test test/"
   },
   "dependencies": {
     "@effectstream/config": "0.102.0",
