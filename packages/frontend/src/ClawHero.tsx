@@ -1,12 +1,16 @@
 // The signature: a kraft sheet torn by a raptor claw, revealing the two chains
 // beneath — Midnight (white, left) and Solana (its gradient, right). Used once, as
-// the hero. Ported from docs/internal/design/claw-solana.html; theme-aware via the
-// .t-*/.s-* CSS classes (fill/stroke bound to tokens in index.css).
+// the full-bleed cinematic hero. Ported from docs/internal/design/claw-solana.html;
+// theme-aware via the .t-*/.s-* CSS classes (fill/stroke bound to tokens in
+// index.css). Returns the bare <svg> (class .claw-svg) so App can overlay a bar on
+// it; `slice` crops to fill whatever banner height the layout gives it, keeping the
+// ANONBOARD wordmark centered.
 export function ClawHero() {
   return (
-    <div className="hero">
       <svg
+        className="claw-svg"
         viewBox="0 0 1200 680"
+        preserveAspectRatio="xMidYMid slice"
         role="img"
         aria-label="ANONBOARD on a kraft sheet; claw marks tear the paper behind the letters, revealing the Solana logomark glowing beneath."
       >
@@ -88,6 +92,5 @@ export function ClawHero() {
           <g transform="translate(1072 52) scale(0.107)"><use href="#sol-logo" fill="url(#sol)" /></g>
         </g>
       </svg>
-    </div>
   );
 }

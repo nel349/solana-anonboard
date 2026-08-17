@@ -173,7 +173,7 @@ export function App() {
 
   return (
     <div className="wrap">
-      {/* Floating Solana / sponsor panel — the chain plumbing, tucked away. */}
+      {/* Floating Solana / sponsor panel — the chain plumbing, tucked bottom-right. */}
       <div className="sol-fab">
         <button
           type="button"
@@ -181,7 +181,7 @@ export function App() {
           onClick={() => setSolanaOpen((o) => !o)}
           aria-expanded={solanaOpen}
         >
-          <span className="d" /> Solana {solanaOpen ? "▲" : "▾"}
+          <span className="d" /> Solana {solanaOpen ? "▾" : "▴"}
         </button>
         {solanaOpen && (
           <div className="sol-panel">
@@ -208,32 +208,30 @@ export function App() {
         )}
       </div>
 
-      <header>
-        <div className="brand">
-          <span className="mk" />
-          <b>anonboard</b>
-        </div>
-        <div className="toggle" role="group" aria-label="Theme">
-          <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>
-            Light
-          </button>
-          <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>
-            Dark
-          </button>
-        </div>
-      </header>
-
-      <ClawHero />
-
-      <p className="eyebrow">Membership on Midnight · Posting on Solana</p>
-
-      <div className="card me-card">
-        <section className="me">
-          <div>
-            <span className="label">Your anonymous badge</span>
-            <code>{badgePk}</code>
+      {/* Full-bleed cinematic hero with an overlay bar (tagline + theme toggle). */}
+      <div className="hero">
+        <ClawHero />
+        <div className="hero-bar">
+          <p className="eyebrow">Membership on Midnight · Posting on Solana</p>
+          <div className="toggle" role="group" aria-label="Theme">
+            <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>
+              Light
+            </button>
+            <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>
+              Dark
+            </button>
           </div>
-          <div>
+        </div>
+      </div>
+
+      <div className="stage">
+        {/* Console: badge + membership + composer, overlapping up into the hero. */}
+        <div className="card console">
+          <div className="who">
+            <div>
+              <span className="label">Your anonymous badge</span>
+              <code>{badgePk}</code>
+            </div>
             {isMember === null ? (
               <span className="pill"><span className="d" />checking</span>
             ) : isMember ? (
@@ -242,86 +240,91 @@ export function App() {
               <span className="pill warn"><span className="d" />not a member</span>
             )}
           </div>
-        </section>
 
-        {!isMember && isMember !== null && (
-          <div className="join-row">
-            {wallet ? (
-              <>
-                <button onClick={join} disabled={busy}>{busy ? "Joining…" : "Join"}</button>
-                <span className="note">Prove membership — your wallet pays the Midnight fee.</span>
-              </>
-            ) : pickList.length > 0 ? (
-              pickList.map((w) => (
-                <button key={w.key} className="secondary" onClick={() => doConnect(w)} disabled={busy}>
-                  {w.name}
-                </button>
-              ))
-            ) : (
-              <>
-                <button className="secondary" onClick={connect} disabled={busy}>
-                  {busy ? "Connecting…" : "Connect wallet"}
-                </button>
-                <span className="note">to join and prove membership.</span>
-              </>
-            )}
+          <div className="compose">
+            <textarea
+              value={draft}
+              maxLength={MAX_BODY}
+              placeholder="Say something…"
+              aria-label="Post body"
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={busy}
+            />
+            <div className="row">
+              <span className="count">{draft.length}/{MAX_BODY}</span>
+              <button onClick={post} disabled={busy || !draft.trim()}>
+                {busy ? "Posting…" : "Post"}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
 
-      <section className="composer">
-        <textarea
-          value={draft}
-          maxLength={MAX_BODY}
-          placeholder="Say something…"
-          aria-label="Post body"
-          onChange={(e) => setDraft(e.target.value)}
-          disabled={busy}
-        />
-        <div className="row">
-          <span className="count">{draft.length}/{MAX_BODY}</span>
-          <button onClick={post} disabled={busy || !draft.trim()}>
-            {busy ? "Posting…" : "Post"}
-          </button>
+          {status.msg && (
+            <p
+              className={`status ${status.kind}`}
+              role={status.kind === "err" ? "alert" : "status"}
+            >
+              {status.msg}
+            </p>
+          )}
+
+          {!isMember && isMember !== null && (
+            <div className="join-row">
+              {wallet ? (
+                <>
+                  <button onClick={join} disabled={busy}>{busy ? "Joining…" : "Join"}</button>
+                  <span className="note">Prove membership — your wallet pays the Midnight fee.</span>
+                </>
+              ) : pickList.length > 0 ? (
+                pickList.map((w) => (
+                  <button key={w.key} className="secondary" onClick={() => doConnect(w)} disabled={busy}>
+                    {w.name}
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button className="secondary" onClick={connect} disabled={busy}>
+                    {busy ? "Connecting…" : "Connect wallet"}
+                  </button>
+                  <span className="note">to join and prove membership.</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        {status.msg && (
-          <p
-            className={`status ${status.kind}`}
-            role={status.kind === "err" ? "alert" : "status"}
-          >
-            {status.msg}
-          </p>
-        )}
-      </section>
 
-      <section className="feed">
-        <h2>Board</h2>
-        {posts.length === 0 && optimistic.length === 0 && <p className="empty">No posts yet.</p>}
-        {optimistic
-          .filter((o) => !posts.some((p) => p.body === o.body && p.author === badgePk))
-          .map((o) => (
-            <article key={`opt-${o.ts}`} className="post pending">
+        <div className="board-head">
+          <h2>Board</h2>
+          <span className="line" />
+        </div>
+
+        <section className="feed">
+          {posts.length === 0 && optimistic.length === 0 && <p className="empty">No posts yet.</p>}
+          {optimistic
+            .filter((o) => !posts.some((p) => p.body === o.body && p.author === badgePk))
+            .map((o) => (
+              <article key={`opt-${o.ts}`} className="post pending">
+                <div className="post-head">
+                  <span className="who">sending…</span>
+                  <span className="reason">confirming</span>
+                </div>
+                <p className="body">{o.body}</p>
+              </article>
+            ))}
+          {posts.map((p) => (
+            <article key={p.id} className={p.accepted ? "post" : "post rej"}>
               <div className="post-head">
-                <span className="who">sending…</span>
-                <span className="reason">confirming</span>
+                <span className="who">{p.accepted ? "member" : "not a member"}</span>
+                <span className="reason">
+                  {p.accepted ? "joined on Midnight" : "not joined on Midnight"}
+                </span>
               </div>
-              <p className="body">{o.body}</p>
+              <p className="body">{p.body}</p>
             </article>
           ))}
-        {posts.map((p) => (
-          <article key={p.id} className={p.accepted ? "post" : "post rej"}>
-            <div className="post-head">
-              <span className="who">{p.accepted ? "member" : "not a member"}</span>
-              <span className="reason">
-                {p.accepted ? "joined on Midnight" : "not joined on Midnight"}
-              </span>
-            </div>
-            <p className="body">{p.body}</p>
-          </article>
-        ))}
-      </section>
+        </section>
 
-      <footer>Solana + Midnight, one EffectStream state machine.</footer>
+        <footer>Solana + Midnight, one EffectStream state machine.</footer>
+      </div>
     </div>
   );
 }
