@@ -33,11 +33,16 @@ stm.addStateTransition("midnight-badges", function* (data) {
     if (!badges[hexKey]) continue;
     const pubkey = hexToBase58(hexKey);
     if (!pubkey) continue;
-    yield* World.resolve(insertBadge, { pubkey, block_height: blockHeight });
-    // Backfill: a post from this author that arrived before the badge synced
-    // was rejected only for lack of a badge. Now that the badge is here, accept
-    // it. This resolves the cross-chain ordering race.
-    yield* World.resolve(acceptPostsForAuthor, { author: pubkey });
+    const inserted = yield* World.resolve(insertBadge, { pubkey, block_height: blockHeight });
+    // Backfill only when the badge is NEW. midnight-badges is a full-snapshot fold
+    // every block, so an unconditional backfill would re-issue the accept-UPDATE
+    // for every badge forever; RETURNING gives a row only on a real insert.
+    if (inserted.length > 0) {
+      // A post from this author that arrived before the badge synced was rejected
+      // only for lack of a badge. Now that the badge is here, accept it — this
+      // resolves the cross-chain ordering race.
+      yield* World.resolve(acceptPostsForAuthor, { author: pubkey });
+    }
   }
 });
 

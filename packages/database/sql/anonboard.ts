@@ -46,10 +46,16 @@ export interface IInsertBadgeParams {
   pubkey: string;
   block_height: number;
 }
-export const insertBadge = prepare<IInsertBadgeParams, void>(
+export interface IInsertBadgeResult {
+  pubkey: string;
+}
+// RETURNING yields a row only on a real insert (empty on ON CONFLICT), so callers
+// can tell a newly-seen badge from a re-fold of the same one.
+export const insertBadge = prepare<IInsertBadgeParams, IInsertBadgeResult>(
   `INSERT INTO badges (pubkey, block_height)
 VALUES (:pubkey!, :block_height!)
-ON CONFLICT (pubkey) DO NOTHING`,
+ON CONFLICT (pubkey) DO NOTHING
+RETURNING pubkey`,
 );
 
 export interface IGetBadgeParams {

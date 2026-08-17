@@ -1,22 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  Transaction,
-  ComputeBudgetProgram,
-  LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
-import bs58 from "bs58";
-import {
-  createPostInstruction,
-  DEV_BATCHER_FEE_PAYER,
-  DEV_BATCHER_TARGET,
-  DEV_BATCHER_URL,
-  DEV_NODE_API_URL,
-  DEV_OPERATOR_URL,
-  DEV_RPC_URL,
-} from "@solana-anonboard/contracts-solana";
+import { useRef, useState } from "react";
+import { Keypair } from "@solana/web3.js";
 import { joinViaWallet, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
 import {
   detectMidnightWallets,
@@ -24,37 +7,22 @@ import {
   type ConnectedWallet,
   type DetectedWallet,
 } from "./midnight/wallet.ts";
-// Rewritten on every deploy; importing the JSON lets HMR pick up the new address.
-import contractInfo from "../../contracts-midnight/contract-anonboard.undeployed.json";
+import { useFeed, useSponsorBalance } from "./hooks.ts";
+import { submitPost } from "./solana/post.ts";
+import {
+  BADGE_STORAGE_KEY,
+  CONTRACT_ADDRESS,
+  COST_PER_POST_LAMPORTS,
+  COST_PER_POST_SOL,
+  MAX_BODY,
+  NETWORK_ID,
+  OPERATOR_URL,
+  SPONSOR_ADDR,
+} from "./config.ts";
 
-const RPC = DEV_RPC_URL;
-const BATCHER_URL = DEV_BATCHER_URL;
-const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
-const BADGES_URL = `${DEV_NODE_API_URL}/api/badges`;
-const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
-const ADDRESS_TYPE_SOLANA = 9; // AddressType.SOLANA
-const MAX_BODY = 280; // bounded by the Solana tx size
-
-// Sponsor pays 5,000 lamports/signature × 2 sigs per post; author pays nothing.
-const LAMPORTS_PER_SIGNATURE = 5000;
-const SIGNATURES_PER_POST = 2; // badge author + sponsor fee-payer
-const COST_PER_POST_LAMPORTS = LAMPORTS_PER_SIGNATURE * SIGNATURES_PER_POST;
-const COST_PER_POST_SOL = COST_PER_POST_LAMPORTS / LAMPORTS_PER_SOL;
-
-// Anonymous session identity, unlinkable to the on-chain member. Not the user's wallet.
-const BADGE_STORAGE_KEY = "anonboard.badge.v1";
-
-// The membership secret (32 bytes) is the roster identity, separate from the
-// badge. It is generated and kept in the browser; deriving its public key and
-// proving `join` both happen client-side, so the operator never sees it.
-// Plaintext localStorage is for the demo only; a real build must encrypt it.
-const CONTRACT_ADDRESS = contractInfo.contractAddress;
-const NETWORK_ID = "undeployed";
-
-// The membership secret is keyed by the connected wallet's stable coin public
-// key, so the same wallet always maps to the same roster member (signData is not
-// guaranteed deterministic, so we don't derive from a signature). Kept in
-// localStorage for the demo; encrypt for production.
+// ── Session identity (localStorage; demo only — encrypt for production). ──
+// The membership secret is keyed by the connected wallet's stable coin public key,
+// so the same wallet always maps to the same roster member.
 function loadOrCreateSecretForWallet(coinPublicKey: string): Uint8Array {
   const key = `anonboard.secret.v2.${coinPublicKey}`;
   const saved = localStorage.getItem(key);
@@ -88,92 +56,24 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 4)}…${a.slice(-4)}`;
 }
 
-type Post = {
-  id: number;
-  author: string;
-  body: string;
-  accepted: boolean;
-  reason: string;
-  block_height: number;
-};
-
 export function App() {
   const badgeRef = useRef<Keypair>(loadOrCreateBadge());
   const badge = badgeRef.current;
   const badgePk = badge.publicKey.toBase58();
   const secretRef = useRef<Uint8Array | null>(null);
 
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isMember, setIsMember] = useState<boolean | null>(null);
+  const { posts, isMember, optimistic, addOptimistic, dropOptimistic } = useFeed(badgePk);
+  const sponsorSol = useSponsorBalance();
+
   const [wallet, setWallet] = useState<ConnectedWallet | null>(null);
   const [walletName, setWalletName] = useState<string>("");
   const [pickList, setPickList] = useState<DetectedWallet[]>([]);
-  const [sponsorSol, setSponsorSol] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "info" | "ok" | "err" }>({
     msg: "",
     kind: "info",
   });
   const [busy, setBusy] = useState(false);
-  // Optimistic rows; each dropped once its real row (same body+badge) arrives from the sync.
-  const [optimistic, setOptimistic] = useState<{ body: string; ts: number }[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const [pRes, bRes] = await Promise.all([fetch(POSTS_URL), fetch(BADGES_URL)]);
-        // On a backend error keep the last-known feed/membership rather than
-        // flipping the board to empty and the badge to "not a member".
-        if (!pRes.ok || !bRes.ok) {
-          console.error(
-            `[anonboard] feed fetch failed (posts ${pRes.status}, badges ${bRes.status}); keeping last state`,
-          );
-          return;
-        }
-        const pJson = await pRes.json();
-        const bJson = await bRes.json();
-        if (!alive) return;
-        const realPosts: Post[] = pJson.posts ?? [];
-        setPosts(realPosts);
-        setIsMember((bJson.badges ?? []).some((b: { pubkey: string }) => b.pubkey === badgePk));
-        setOptimistic((prev) =>
-          prev.filter((o) => !realPosts.some((p) => p.body === o.body && p.author === badgePk)),
-        );
-      } catch (e) {
-        // Transient network error — keep last state, surface for debugging.
-        console.error("[anonboard] feed poll error:", e);
-      }
-    };
-    tick();
-    // Poll the feed every 500ms so the board reflects the sub-second sync
-    // quickly. A production build could subscribe to the sync's MQTT push
-    // (ws://127.0.0.1:9883, RollupBlock) instead of polling.
-    const h = setInterval(tick, 500);
-    return () => {
-      alive = false;
-      clearInterval(h);
-    };
-  }, [badgePk]);
-
-  useEffect(() => {
-    let alive = true;
-    const conn = new Connection(RPC, "confirmed");
-    const tick = async () => {
-      try {
-        const lamports = await conn.getBalance(SPONSOR, "confirmed");
-        if (alive) setSponsorSol(lamports / LAMPORTS_PER_SOL);
-      } catch (e) {
-        console.error("[anonboard] sponsor balance read failed:", e);
-      }
-    };
-    tick();
-    const h = setInterval(tick, 5000);
-    return () => {
-      alive = false;
-      clearInterval(h);
-    };
-  }, []);
 
   function connect() {
     const found = detectMidnightWallets();
@@ -206,7 +106,8 @@ export function App() {
     }
   }
 
-  // Operator must add the member to the roster BEFORE the browser can prove join — the circuit asserts membership.
+  // Operator adds the member to the roster; then the browser proves join and the
+  // connected wallet pays + submits.
   async function join() {
     if (!wallet || !secretRef.current) {
       setStatus({ msg: "Connect your wallet first.", kind: "err" });
@@ -217,7 +118,7 @@ export function App() {
     try {
       setStatus({ msg: "Registering your membership key on the roster…", kind: "info" });
       const memberPkHex = toHexString(deriveMemberPublicKey(secret));
-      const reg = await fetch(`${DEV_OPERATOR_URL}/register`, {
+      const reg = await fetch(`${OPERATOR_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberPkHex }),
@@ -244,43 +145,15 @@ export function App() {
   async function post() {
     const body = draft.trim();
     if (!body) return;
-    const ts = Date.now();
-    setOptimistic((prev) => [{ body, ts }, ...prev]);
+    const ts = addOptimistic(body);
     setDraft("");
     setBusy(true);
-    setStatus({ msg: "Signing (you pay 0 SOL)…", kind: "info" });
+    setStatus({ msg: "Signing + sending (you pay 0 SOL)…", kind: "info" });
     try {
-      const conn = new Connection(RPC, "confirmed");
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      const tx = new Transaction();
-      tx.feePayer = SPONSOR;
-      tx.recentBlockhash = blockhash;
-      tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-      tx.add(createPostInstruction(badge.publicKey, body));
-      tx.partialSign(badge);
-      const b64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
-      const sig = tx.signatures.find((s) => s.publicKey.equals(badge.publicKey))?.signature;
-
-      setStatus({ msg: "Sending to the batcher (sponsor co-signs + pays)…", kind: "info" });
-      const res = await fetch(`${BATCHER_URL}/send-input`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          data: {
-            target: DEV_BATCHER_TARGET,
-            address: badgePk,
-            addressType: ADDRESS_TYPE_SOLANA,
-            input: b64,
-            signature: sig ? bs58.encode(sig) : "",
-            timestamp: Date.now().toString(),
-          },
-          confirmationLevel: "wait-receipt",
-        }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setOptimistic((prev) => prev.filter((o) => o.ts !== ts));
-        setStatus({ msg: `Batcher rejected: ${j.message ?? res.status}`, kind: "err" });
+      const result = await submitPost(badge, body);
+      if (!result.ok) {
+        dropOptimistic(ts);
+        setStatus({ msg: `Batcher rejected: ${result.message}`, kind: "err" });
       } else {
         setStatus({
           msg: isMember
@@ -290,7 +163,7 @@ export function App() {
         });
       }
     } catch (e) {
-      setOptimistic((prev) => prev.filter((o) => o.ts !== ts));
+      dropOptimistic(ts);
       setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
     } finally {
       setBusy(false);
@@ -327,7 +200,7 @@ export function App() {
         <div className="stat">
           <span className="k">Sponsor account</span>
           <span className="v">
-            <code>{shortAddr(DEV_BATCHER_FEE_PAYER)}</code>
+            <code>{shortAddr(SPONSOR_ADDR)}</code>
           </span>
           <span className="sub">pays every post's fee so you don't</span>
         </div>
@@ -433,9 +306,7 @@ export function App() {
             <div className="post-head">
               <span className="who">{p.accepted ? "member" : "not a member"}</span>
               <span className="reason">
-                {p.accepted
-                  ? "joined on Midnight"
-                  : "badge has not joined on Midnight"}
+                {p.accepted ? "joined on Midnight" : "badge has not joined on Midnight"}
               </span>
             </div>
             <p className="body">{p.body}</p>
