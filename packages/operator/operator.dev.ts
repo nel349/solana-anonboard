@@ -1,5 +1,6 @@
-// Operator ("Party B"): pays + submits a browser-proven join WITHOUT seeing the
-// membership secret (operator-blind). Dev-only: single funded wallet, permissive CORS, no auth.
+// Operator ("Party B"): registers members on the Midnight roster (owner-only
+// add_to_roster) — it never sees a member's secret. Dev-only: single funded
+// wallet, permissive CORS, no auth.
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
   buildWalletAndWaitForFunds,
@@ -10,7 +11,6 @@ import { readMidnightContract } from "@effectstream/midnight-contracts/read-cont
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { Transaction as LedgerTx } from "@midnight-ntwrk/ledger-v8";
 import path from "node:path";
 import {
   Anonboard,
@@ -128,28 +128,6 @@ async function register(memberPkHex: string): Promise<{ added: boolean }> {
   });
 }
 
-async function submit(unboundHex: string): Promise<{ txid: string }> {
-  if (!/^[0-9a-fA-F]+$/.test(unboundHex) || unboundHex.length < 2) {
-    throw new Error("unboundHex must be a non-empty hex string");
-  }
-  const r = ready!;
-  return serialize(async () => {
-    const tx = LedgerTx.deserialize("signature", "proof", "pre-binding", fromHex(unboundHex));
-    const recipe = await r.wallet.wallet.balanceUnboundTransaction(
-      tx as never,
-      {
-        shieldedSecretKeys: r.wallet.walletZswapSecretKeys,
-        dustSecretKey: r.wallet.walletDustSecretKey,
-      } as never,
-      { ttl: new Date(Date.now() + 5 * 60 * 1000) } as never,
-    );
-    const finalized = await r.wallet.wallet.finalizeRecipe(recipe as never);
-    const txid = String(await r.wallet.wallet.submitTransaction(finalized as never));
-    log(`submitted join ${txid.slice(0, 16)}…`);
-    return { txid };
-  });
-}
-
 function cors(origin: string | null): Record<string, string> {
   // Dev-only: reflect any localhost origin so the Vite dev server works on any port.
   const allow = origin && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ? origin : "*";
@@ -179,11 +157,6 @@ Bun.serve({
         const { memberPkHex } = (await req.json()) as { memberPkHex?: string };
         if (!memberPkHex) return json({ ok: false, error: "memberPkHex required" }, 400, origin);
         return json({ ok: true, ...(await register(memberPkHex)) }, 200, origin);
-      }
-      if (req.method === "POST" && url.pathname === "/submit") {
-        const { unboundHex } = (await req.json()) as { unboundHex?: string };
-        if (!unboundHex) return json({ ok: false, error: "unboundHex required" }, 400, origin);
-        return json({ ok: true, ...(await submit(unboundHex)) }, 200, origin);
       }
     } catch (e) {
       return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500, origin);

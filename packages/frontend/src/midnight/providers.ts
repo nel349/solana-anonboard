@@ -7,14 +7,8 @@ import {
   type ProverKey,
   type VerifierKey,
   type ZKIR,
-  type MidnightProviders,
-  type WalletProvider,
-  type MidnightProvider,
   type PrivateStateProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { ZswapSecretKeys } from "@midnight-ntwrk/ledger-v8";
 
 // zk-config over HTTP from public/: <baseUrl>/keys/<c>.prover|.verifier, <baseUrl>/zkir/<c>.bzkir
 export class FetchZKConfigProvider<K extends string> extends ZKConfigProvider<K> {
@@ -84,44 +78,4 @@ export class InMemoryPrivateStateProvider implements PrivateStateProvider {
   async importSigningKeys(): Promise<never> {
     throw new Error("importSigningKeys: not supported in the browser session store");
   }
-}
-
-// Browser never pays: operator balances + submits, so balanceTx/submitTx throw here. Keys are a throwaway zswap pair, not the payer's.
-export function makeBrowserWalletProvider(seed: Uint8Array): WalletProvider & MidnightProvider {
-  const zswap = ZswapSecretKeys.fromSeed(seed);
-  return {
-    getCoinPublicKey: () => zswap.coinPublicKey,
-    getEncryptionPublicKey: () => zswap.encryptionPublicKey,
-    balanceTx: () => {
-      throw new Error(
-        "balanceTx called in the browser: the operator balances + submits, not the client",
-      );
-    },
-    submitTx: () => {
-      throw new Error(
-        "submitTx called in the browser: the operator balances + submits, not the client",
-      );
-    },
-  };
-}
-
-export type BrowserProviderConfig = {
-  indexerUrl: string;
-  indexerWsUrl: string;
-  proofServerUrl: string;
-  zkAssetsBaseUrl: string; // e.g. "/anonboard"
-  walletSeed: Uint8Array; // throwaway zswap seed for tx shaping only
-};
-
-export function buildBrowserProviders(cfg: BrowserProviderConfig): MidnightProviders {
-  const zkConfigProvider = new FetchZKConfigProvider(cfg.zkAssetsBaseUrl);
-  const walletProvider = makeBrowserWalletProvider(cfg.walletSeed);
-  return {
-    zkConfigProvider,
-    publicDataProvider: indexerPublicDataProvider(cfg.indexerUrl, cfg.indexerWsUrl),
-    proofProvider: httpClientProofProvider(cfg.proofServerUrl, zkConfigProvider),
-    privateStateProvider: new InMemoryPrivateStateProvider(),
-    walletProvider,
-    midnightProvider: walletProvider,
-  } as MidnightProviders;
 }

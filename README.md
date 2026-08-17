@@ -21,7 +21,7 @@ Every accepted post is provably from a real member, and no post traces back to a
 | `contracts-midnight` | The Compact `anonboard` contract — roster, badges, and the `join` circuit that proves membership and burns a nullifier. |
 | `contracts-solana` | The Solana program that records posts (a `Post` instruction emitting one log line per post). |
 | `node` | The EffectStream sync node: mirrors Midnight badges into Postgres and runs the arbiter that accepts a post only if its author holds a badge. |
-| `operator` | Midnight-side service: registers members on the roster (`add_to_roster`). It also exposes an operator-blind `/submit` (pay+submit a browser-proven join **without seeing the secret**) — a reference endpoint not wired into the shipped flows: the UI join is wallet-paid, and the headless `scripts/blind-join.ts` builds the join in-process. |
+| `operator` | Midnight-side service: registers a member's public key on the roster (owner-only `add_to_roster`) — it never sees the member's secret. The UI join is wallet-paid; the headless operator-blind variant lives in `scripts/blind-join.ts`. |
 | `batcher` | Solana fee-payer: co-signs and submits user-signed posts so the author never needs SOL. |
 | `frontend` | Vite + React UI: connect a Midnight wallet, join, and post. |
 | `database` | PGLite schema + typed queries for badges and posts. |

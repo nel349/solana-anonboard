@@ -19,7 +19,6 @@ import {
 // itself is single-sourced in the contract package (member-key.ts).
 export { deriveMemberPublicKey };
 import {
-  buildBrowserProviders,
   FetchZKConfigProvider,
   InMemoryPrivateStateProvider,
 } from "./providers.ts";
@@ -37,51 +36,8 @@ export function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Throws if the member isn't on the roster (circuit asserts it) or the nullifier is spent (one join per member).
-export async function proveJoin(
-  badgePublicKey: Uint8Array,
-  secret: Uint8Array,
-  contractAddress: string,
-): Promise<string> {
-  setNetworkId(NETWORK.id);
-  const walletSeed = crypto.getRandomValues(new Uint8Array(32));
-  const providers = buildBrowserProviders({
-    indexerUrl: NETWORK.indexer,
-    indexerWsUrl: NETWORK.indexerWS,
-    proofServerUrl: NETWORK.proofServer,
-    zkAssetsBaseUrl: "/anonboard",
-    walletSeed,
-  });
-
-  const compiled = CompiledContract.make(
-    "contract-anonboard",
-    Anonboard.Contract as never,
-  ).pipe(
-    CompiledContract.withWitnesses(witnesses as never),
-    CompiledContract.withCompiledFileAssets("."), // inert: assets flow via zkConfigProvider
-  );
-
-  providers.privateStateProvider.setContractAddress(contractAddress);
-  await providers.privateStateProvider.set(
-    PRIVATE_STATE_ID,
-    createAnonboardPrivateState(secret) as never,
-  );
-
-  const unproven = await createUnprovenCallTx(providers as never, {
-    compiledContract: compiled as never,
-    circuitId: "join" as never,
-    contractAddress,
-    args: [badgePublicKey] as never,
-    privateStateId: PRIVATE_STATE_ID,
-  } as never);
-
-  const unbound = await providers.proofProvider.proveTx(
-    (unproven as never as { private: { unprovenTx: unknown } }).private.unprovenTx as never,
-  );
-  return toHex((unbound as { serialize(): Uint8Array }).serialize());
-}
-
-// Wallet proves+pays+submits; the secret stays app-side (in-memory private state), only the witness-free tx goes to the wallet.
+// Browser proves the join, then the connected wallet pays (balances) and submits;
+// the member secret stays app-side (in-memory private state), never a wallet arg.
 export async function joinViaWallet(
   wallet: ConnectedWallet,
   badgePublicKey: Uint8Array,
