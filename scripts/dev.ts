@@ -26,11 +26,21 @@ const c = {
 const isTTY = Boolean(process.stdout.isTTY);
 
 type Svc = { key: string; label: string; port: number; link?: string; http?: string; note?: string; primary?: boolean };
+
+// On a hosted net (preview/preprod) the Midnight node + indexer are remote, so only
+// the local proof server is worth port-checking; on `undeployed` everything is local.
+const NET = process.env.MIDNIGHT_NETWORK_ID || "undeployed";
+const HOSTED = NET !== "undeployed";
+const midnightRows: Svc[] = HOSTED
+  ? [{ key: "proof", label: "Midnight proof server", port: 6300, note: `local; submits to ${NET} (hosted)` }]
+  : [
+      { key: "midnight", label: "Midnight node", port: 9944 },
+      { key: "proof", label: "Midnight proof server", port: 6300 },
+      { key: "indexer", label: "Midnight indexer", port: 8088, note: "may retry once on a cold chain (normal)" },
+    ];
 const SERVICES: Svc[] = [
   { key: "solana", label: "Solana validator", port: 8899 },
-  { key: "midnight", label: "Midnight node", port: 9944 },
-  { key: "proof", label: "Midnight proof server", port: 6300 },
-  { key: "indexer", label: "Midnight indexer", port: 8088, note: "may retry once on a cold chain (normal)" },
+  ...midnightRows,
   { key: "sync", label: "Sync node API", port: 9999, http: "http://localhost:9999/api/posts", link: "http://localhost:9999/api/posts" },
   { key: "operator", label: "Operator", port: 3335, link: "http://localhost:3335" },
   { key: "batcher", label: "Batcher", port: 3334, link: "http://localhost:3334" },
@@ -156,7 +166,7 @@ function banner() {
     line("Sync API", "http://localhost:9999/api/posts") + "\n" +
     line("Operator", "http://localhost:3335") + "\n" +
     line("Batcher", "http://localhost:3334") + "\n" +
-    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}Midnight :9944 / :8088 / :6300   Solana :8899${c.reset}\n\n` +
+    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}\n\n` +
     `  ${c.dim}logs:${c.reset} bun run dev:logs      ${c.dim}stop:${c.reset} Ctrl-C\n\n`,
   );
 }

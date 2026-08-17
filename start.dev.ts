@@ -4,6 +4,7 @@ import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite"
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { midnightPlan } from "./localnet-preflight.ts";
+import { midnightNetwork } from "./packages/contracts-midnight/networks.ts";
 
 const root = import.meta.dirname!;
 
@@ -30,15 +31,71 @@ if (solanaValidatorIdx >= 0) {
   };
 }
 
-// Decide the Midnight leg: self-host a fresh localnet, or attach to a running one.
-// Never force-frees a shared port. See docs/internal/LOCALNET-DESIGN.md.
-const mnPlan = midnightPlan();
-console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
+// Endpoints for the active Midnight network come from the single source of truth
+// (networks.ts). Export them as the MIDNIGHT_* overrides the vendored SDK reads, so
+// the sync node, deploy, and operator use the exact URLs the frontend does.
+const netId = process.env.MIDNIGHT_NETWORK_ID ?? "undeployed";
+const net = midnightNetwork(netId);
+const midnightEnv = {
+  MIDNIGHT_INDEXER_HTTP: net.indexer,
+  MIDNIGHT_INDEXER_WS: net.indexerWS,
+  MIDNIGHT_NODE_HTTP: net.node,
+  MIDNIGHT_PROOF_SERVER_URL: net.proofServer,
+};
+const hosted = netId !== "undeployed";
 const contractsMidnightCwd = path.join(root, "packages/contracts-midnight");
-const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" };
+const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!", ...midnightEnv };
+
+// Only probe the local ports when we're actually running a local chain.
+const mnPlan = hosted ? null : midnightPlan();
+if (mnPlan) console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
 
 let midnightProcesses;
-if (mnPlan.mode === "self-host") {
+if (hosted) {
+  // Hosted TestNet (preview/preprod): the node + indexer are Midnight-hosted, so run
+  // only the LOCAL proof server (it proves here, then submits to the hosted node),
+  // fund the deploy wallet on that net, and deploy to it. Solana stays local. Requires
+  // a real MIDNIGHT_OWNER_KEY and a funded MIDNIGHT_WALLET_SEED (see README).
+  console.log(`[localnet] Midnight -> hosted (${netId}); local proof server + deploy`);
+  const nodeWs = net.node.replace(/^http/, "ws"); // http->ws, https->wss
+  midnightProcesses = [
+    {
+      name: "midnight-proof-server",
+      description: "Midnight proof server (local; proves then submits to the hosted node)",
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-proof-server:start"],
+      env: { SUBSTRATE_NODE_WS_URL: nodeWs },
+      link: "http://localhost:6300",
+    },
+    {
+      name: "midnight-proof-server-wait",
+      description: "Wait for the local proof server",
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-proof-server:wait"],
+      waitToExit: true,
+      dependsOn: ["midnight-proof-server"],
+    },
+    {
+      name: "midnight-fund",
+      description: `Fund the deploy wallet on ${netId} (best-effort; set MIDNIGHT_WALLET_SEED to a funded seed)`,
+      cwd: root,
+      args: ["run", "scripts/midnight-fund.ts"],
+      waitToExit: true,
+      dependsOn: ["midnight-contract-compile"],
+      env: midnightEnv,
+    },
+    {
+      name: MidnightNames.CONTRACT_DEPLOY,
+      description: `Deploy the anonboard contract to ${netId}`,
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-contract:deploy"],
+      env: deployEnv,
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["midnight-contract-compile", "midnight-proof-server-wait", "midnight-fund"],
+    },
+  ];
+} else if (mnPlan!.mode === "self-host") {
   // Boot the full localnet — but strip stopProcessAtPort so we never force-free a
   // shared port (the preflight already confirmed these ports are ours to use).
   midnightProcesses = launchMidnight(
@@ -48,6 +105,16 @@ if (mnPlan.mode === "self-host") {
   );
   for (const p of midnightProcesses)
     delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
+
+  // launchMidnight's env param doesn't reach the deploy in this version, so set the
+  // centralized endpoints (+ storage password) on it explicitly — otherwise the deploy
+  // falls back to the SDK's stale default (v3) while everything else uses networks.ts.
+  const deployProc = midnightProcesses.find((p) => p.name === MidnightNames.CONTRACT_DEPLOY);
+  if (deployProc)
+    (deployProc as { env?: Record<string, string> }).env = {
+      ...((deployProc as { env?: Record<string, string> }).env ?? {}),
+      ...deployEnv,
+    };
 
   // Start every boot from a fresh chain. The node persists state in .midnight-data,
   // so a re-run would RESUME an aged chain — and a fresh indexer catching up THROUGH
@@ -137,7 +204,7 @@ export default {
       args: ["run", "packages/node/main.dev.ts"],
       waitToExit: false,
       type: "system-dependency",
-      env: { PGLITE: "true" },
+      env: { PGLITE: "true", ...midnightEnv },
       dependsOn: [
         DbNames.PGLITE_WAIT,
         SolanaNames.SOLANA_VALIDATOR_WAIT,
@@ -154,6 +221,7 @@ export default {
       type: "system-dependency",
       link: "http://localhost:3335",
       stopProcessAtPort: [3335],
+      env: midnightEnv,
       dependsOn: [...midnightDeps],
     },
 
@@ -186,6 +254,8 @@ export default {
       type: "system-dependency",
       link: "http://localhost:5173",
       stopProcessAtPort: [5173],
+      // Tells the UI which Midnight network to read (endpoints come from networks.ts).
+      env: { VITE_MIDNIGHT_NETWORK_ID: netId },
       // Wait on the Midnight deploy, not just the batcher: predev copy-zk reads
       // the compiled join keys + deployed address; booting first copies
       // half-written keys (proof server then 400s).

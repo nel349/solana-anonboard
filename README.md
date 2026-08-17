@@ -55,6 +55,23 @@ To wipe the local chain and start clean: `bun run --filter @solana-anonboard/con
 
 There are also headless scripts for the same flow without the UI: `scripts/demo.ts` (end-to-end), `scripts/blind-join.ts` (operator-blind join), `scripts/gasless-post.ts` (gasless post).
 
+## Running against a hosted TestNet (preview / preprod)
+
+`bun run dev` defaults to a local chain. To point the Midnight half at a hosted TestNet instead, set three env vars — Solana and the proof server stay local; only Midnight's node and indexer move to the hosted net:
+
+```bash
+MIDNIGHT_NETWORK_ID=preview \
+MIDNIGHT_OWNER_KEY=<64-hex private owner key> \
+MIDNIGHT_WALLET_SEED=<funded wallet seed> \
+bun run dev
+```
+
+- **`MIDNIGHT_NETWORK_ID`** — `preview` or `preprod`.
+- **`MIDNIGHT_OWNER_KEY`** — your own private roster-owner key (32 bytes, hex). The committed dev key only works on `undeployed`; on a hosted net `deploy` and the operator refuse to run without a real one (it is public in this repo, so it would let anyone forge memberships).
+- **`MIDNIGHT_WALLET_SEED`** — the deploy/operator wallet, funded with NIGHT + dust on that net. Faucet: [preview](https://midnight-tmnight-preview.nethermind.dev/) · [preprod](https://midnight-tmnight-preprod.nethermind.dev/).
+
+Every Midnight endpoint lives in one place, [`packages/contracts-midnight/networks.ts`](packages/contracts-midnight/networks.ts), and flows to the frontend, sync node, deploy, and operator. The indexer API is **v4** (per the [network release notes](https://docs.midnight.network/relnotes/network)); the version generation follows the [support matrix](https://docs.midnight.network/relnotes/support-matrix) and matches "Verified against" below, so a hosted run needs no dependency changes. The verified path is the local `undeployed` flow (E2E, below); the hosted flow additionally needs a funded wallet on that net.
+
 ## Verified against
 
 The contract compiles and the loop runs end-to-end (verified 2026-08-17 — E2E suite green, 20/20) against:

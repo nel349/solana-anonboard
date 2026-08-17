@@ -8,8 +8,6 @@ import {
   DEV_OPERATOR_URL,
   DEV_RPC_URL,
 } from "@solana-anonboard/contracts-solana";
-// Rewritten on every deploy; importing the JSON lets HMR pick up the new address.
-import contractInfo from "../../contracts-midnight/contract-anonboard.undeployed.json";
 
 export const RPC = DEV_RPC_URL;
 export const BATCHER_URL = DEV_BATCHER_URL;
@@ -29,8 +27,22 @@ const SIGNATURES_PER_POST = 2; // badge author + sponsor fee-payer
 export const COST_PER_POST_LAMPORTS = LAMPORTS_PER_SIGNATURE * SIGNATURES_PER_POST;
 export const COST_PER_POST_SOL = COST_PER_POST_LAMPORTS / LAMPORTS_PER_SOL;
 
-export const CONTRACT_ADDRESS = contractInfo.contractAddress;
-export const NETWORK_ID = "undeployed";
+// Which Midnight network the UI talks to. Defaults to the local `undeployed` chain;
+// set VITE_MIDNIGHT_NETWORK_ID=preview|preprod (via MIDNIGHT_NETWORK_ID on `bun run dev`)
+// to point at a hosted net. Solana + the proof server stay local either way.
+export const NETWORK_ID =
+  (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string | undefined) || "undeployed";
+
+// The deployed address is written per-network as contract-anonboard.<net>.json on every
+// deploy. Glob-import them (eager, so HMR picks up a redeploy) and select this network's.
+const contractAddresses = import.meta.glob<{ contractAddress: string }>(
+  "../../contracts-midnight/contract-anonboard.*.json",
+  { eager: true, import: "default" },
+);
+const contractEntry = Object.entries(contractAddresses).find(([path]) =>
+  path.endsWith(`.${NETWORK_ID}.json`),
+);
+export const CONTRACT_ADDRESS = contractEntry?.[1].contractAddress ?? "";
 
 // Anonymous session identity, unlinkable to the on-chain member. Not the user's wallet.
 export const BADGE_STORAGE_KEY = "anonboard.badge.v1";

@@ -23,13 +23,11 @@ import {
   InMemoryPrivateStateProvider,
 } from "./providers.ts";
 import type { ConnectedWallet } from "./wallet.ts";
+import { midnightNetwork } from "../../../contracts-midnight/networks.ts";
+import { NETWORK_ID } from "../config.ts";
 
-const NETWORK = {
-  id: "undeployed",
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
-  proofServer: "http://127.0.0.1:6300",
-};
+// Endpoints for the active network, from the single source of truth (networks.ts).
+const NETWORK = midnightNetwork(NETWORK_ID);
 const PRIVATE_STATE_ID = "anonboardMemberState";
 
 export function toHexString(bytes: Uint8Array): string {
