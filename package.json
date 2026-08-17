@@ -11,7 +11,9 @@
     "packages/contracts-midnight/contract-anonboard"
   ],
   "scripts": {
-    "dev": "NODE_ENV=development bunx orchestrator start",
+    "dev": "bun run scripts/dev.ts",
+  "dev:logs": "tail -n +1 -f .dev.log",
+  "dev:raw": "NODE_ENV=development bunx orchestrator start",
     "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
     "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
     "test": "bun run packages/tests/run-tests.ts",
