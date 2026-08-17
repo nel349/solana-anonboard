@@ -6,7 +6,8 @@
   "scripts": {
     "start:dev": "bun run main.dev.ts",
     "chain:start": "bun run chain-start.ts",
-    "chain:wait": "bun ../../node_modules/.bin/wait-on http-get://127.0.0.1:${SOLANA_RPC_PORT:-8899}/health"
+    "chain:wait": "bun ../../node_modules/.bin/wait-on http-get://127.0.0.1:${SOLANA_RPC_PORT:-8899}/health",
+    "test": "bun test test/"
   },
   "dependencies": {
     "@effectstream/concise": "0.102.0",
