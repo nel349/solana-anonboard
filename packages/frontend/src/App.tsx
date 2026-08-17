@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Keypair } from "@solana/web3.js";
 import { joinViaWallet, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
 import {
@@ -7,12 +7,12 @@ import {
   type ConnectedWallet,
   type DetectedWallet,
 } from "./midnight/wallet.ts";
+import { ClawHero } from "./ClawHero.tsx";
 import { useFeed, useSponsorBalance } from "./hooks.ts";
 import { submitPost } from "./solana/post.ts";
 import {
   BADGE_STORAGE_KEY,
   CONTRACT_ADDRESS,
-  COST_PER_POST_LAMPORTS,
   COST_PER_POST_SOL,
   MAX_BODY,
   NETWORK_ID,
@@ -21,8 +21,6 @@ import {
 } from "./config.ts";
 
 // ── Session identity (localStorage; demo only — encrypt for production). ──
-// The membership secret is keyed by the connected wallet's stable coin public key,
-// so the same wallet always maps to the same roster member.
 function loadOrCreateSecretForWallet(coinPublicKey: string): Uint8Array {
   const key = `anonboard.secret.v2.${coinPublicKey}`;
   const saved = localStorage.getItem(key);
@@ -56,6 +54,13 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 4)}…${a.slice(-4)}`;
 }
 
+type Theme = "light" | "dark";
+function initialTheme(): Theme {
+  const saved = localStorage.getItem("anonboard.theme");
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function App() {
   const badgeRef = useRef<Keypair>(loadOrCreateBadge());
   const badge = badgeRef.current;
@@ -65,6 +70,13 @@ export function App() {
   const { posts, isMember, optimistic, addOptimistic, dropOptimistic } = useFeed(badgePk);
   const sponsorSol = useSponsorBalance();
 
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("anonboard.theme", theme);
+  }, [theme]);
+
+  const [solanaOpen, setSolanaOpen] = useState(false);
   const [wallet, setWallet] = useState<ConnectedWallet | null>(null);
   const [walletName, setWalletName] = useState<string>("");
   const [pickList, setPickList] = useState<DetectedWallet[]>([]);
@@ -92,7 +104,7 @@ export function App() {
     setPickList([]);
     setBusy(true);
     try {
-      setStatus({ msg: `Connecting ${picked.name} — approve in the wallet…`, kind: "info" });
+      setStatus({ msg: `Connecting ${picked.name}…`, kind: "info" });
       const w = await connectMidnightWallet(picked.key, NETWORK_ID);
       const addrs = await w.getShieldedAddresses();
       secretRef.current = loadOrCreateSecretForWallet(addrs.shieldedCoinPublicKey);
@@ -116,7 +128,7 @@ export function App() {
     const secret = secretRef.current;
     setBusy(true);
     try {
-      setStatus({ msg: "Registering your membership key on the roster…", kind: "info" });
+      setStatus({ msg: "Registering your membership key…", kind: "info" });
       const memberPkHex = toHexString(deriveMemberPublicKey(secret));
       const reg = await fetch(`${OPERATOR_URL}/register`, {
         method: "POST",
@@ -125,16 +137,10 @@ export function App() {
       }).then((r) => r.json());
       if (!reg.ok) throw new Error(reg.error ?? "register failed");
 
-      setStatus({
-        msg: `Proving membership in your browser; approve in ${walletName} to pay + submit…`,
-        kind: "info",
-      });
+      setStatus({ msg: `Proving membership — approve in ${walletName}…`, kind: "info" });
       await joinViaWallet(wallet, badge.publicKey.toBytes(), secret, CONTRACT_ADDRESS);
 
-      setStatus({
-        msg: "Joined with your wallet. Your badge becomes a member once the node syncs it.",
-        kind: "ok",
-      });
+      setStatus({ msg: "Joined. Your badge becomes a member once the node syncs.", kind: "ok" });
     } catch (e) {
       setStatus({ msg: `Join failed: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
     } finally {
@@ -148,19 +154,14 @@ export function App() {
     const ts = addOptimistic(body);
     setDraft("");
     setBusy(true);
-    setStatus({ msg: "Signing + sending (you pay 0 SOL)…", kind: "info" });
+    setStatus({ msg: "Posting…", kind: "info" });
     try {
       const result = await submitPost(badge, body);
       if (!result.ok) {
         dropOptimistic(ts);
-        setStatus({ msg: `Batcher rejected: ${result.message}`, kind: "err" });
+        setStatus({ msg: `Rejected: ${result.message}`, kind: "err" });
       } else {
-        setStatus({
-          msg: isMember
-            ? "Posted — confirming on-chain…"
-            : "Posted — confirming on-chain (shows 'not a member' until you join)…",
-          kind: "ok",
-        });
+        setStatus({ msg: "Posted — confirming on-chain…", kind: "ok" });
       }
     } catch (e) {
       dropOptimistic(ts);
@@ -172,91 +173,101 @@ export function App() {
 
   return (
     <div className="wrap">
+      {/* Floating Solana / sponsor panel — the chain plumbing, tucked away. */}
+      <div className="sol-fab">
+        <button
+          type="button"
+          className="tab"
+          onClick={() => setSolanaOpen((o) => !o)}
+          aria-expanded={solanaOpen}
+        >
+          <span className="d" /> Solana {solanaOpen ? "▲" : "▾"}
+        </button>
+        {solanaOpen && (
+          <div className="sol-panel">
+            <p className="h">Solana — gasless posting</p>
+            <div className="sol-stat">
+              <span className="k">You pay</span>
+              <span className="v">0 SOL</span>
+            </div>
+            <div className="sol-stat">
+              <span className="k">Sponsor</span>
+              <span className="v"><code>{shortAddr(SPONSOR_ADDR)}</code></span>
+              <span className="sub">covers every post's fee</span>
+            </div>
+            <div className="sol-stat">
+              <span className="k">Sponsor balance</span>
+              <span className="v">{sponsorSol === null ? "…" : `${sponsorSol.toFixed(5)} SOL`}</span>
+              <span className="sub">
+                {sponsorSol === null
+                  ? "reading…"
+                  : `~${Math.floor(sponsorSol / COST_PER_POST_SOL).toLocaleString()} more posts`}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <header>
-        <h1>anonboard</h1>
-        <p className="tag">
-          Every member post is provably from someone on the Midnight roster. No post
-          can be traced back to a person, not even by whoever runs the servers.
-        </p>
+        <div className="brand">
+          <span className="mk" />
+          <b>anonboard</b>
+        </div>
+        <div className="toggle" role="group" aria-label="Theme">
+          <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>
+            Light
+          </button>
+          <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>
+            Dark
+          </button>
+        </div>
       </header>
 
-      <section className="me">
-        <div>
-          <span className="label">Your anonymous badge</span>
-          <code>{badgePk}</code>
-        </div>
-        <div>
-          {isMember === null ? (
-            <span className="pill">checking…</span>
-          ) : isMember ? (
-            <span className="pill ok">member</span>
-          ) : (
-            <span className="pill warn">not a member</span>
-          )}
-        </div>
-      </section>
+      <ClawHero />
 
-      <section className="stats">
-        <div className="stat">
-          <span className="k">Sponsor account</span>
-          <span className="v">
-            <code>{shortAddr(SPONSOR_ADDR)}</code>
-          </span>
-          <span className="sub">pays every post's fee so you don't</span>
-        </div>
-        <div className="stat">
-          <span className="k">Sponsor balance</span>
-          <span className="v">
-            {sponsorSol === null ? "…" : `${sponsorSol.toFixed(5)} SOL`}
-          </span>
-          <span className="sub">
-            {sponsorSol === null
-              ? "reading from the chain…"
-              : `funds ~${Math.floor(sponsorSol / COST_PER_POST_SOL).toLocaleString()} more posts`}
-          </span>
-        </div>
-        <div className="stat">
-          <span className="k">Cost per post</span>
-          <span className="v">You: 0 SOL</span>
-          <span className="sub">
-            sponsor pays {COST_PER_POST_SOL.toFixed(5)} SOL ({COST_PER_POST_LAMPORTS.toLocaleString()} lamports)
-          </span>
-        </div>
-      </section>
+      <p className="eyebrow">Membership on Midnight · Posting on Solana</p>
 
-      {!isMember && isMember !== null && (
-        <div className="hint">
-          <p>
-            Your badge has not joined on Midnight yet. You can still post, but the board
-            marks it <strong>not a member</strong> until you join — that is the
-            cross-chain check working, not an error. Connect your Midnight wallet to
-            prove membership; the proof runs in your browser and the wallet pays the fee.
-          </p>
-          {wallet ? (
-            <>
-              <p className="wallet-line">
-                Connected: <strong>{walletName}</strong>
-              </p>
-              <button className="join" onClick={join} disabled={busy}>
-                {busy ? "Joining…" : `Join with ${walletName}`}
-              </button>
-            </>
-          ) : pickList.length > 0 ? (
-            <div className="wallet-pick">
-              <p className="wallet-line">Choose a wallet:</p>
-              {pickList.map((w) => (
-                <button key={w.key} className="join" onClick={() => doConnect(w)} disabled={busy}>
+      <div className="card me-card">
+        <section className="me">
+          <div>
+            <span className="label">Your anonymous badge</span>
+            <code>{badgePk}</code>
+          </div>
+          <div>
+            {isMember === null ? (
+              <span className="pill"><span className="d" />checking</span>
+            ) : isMember ? (
+              <span className="pill ok"><span className="d" />member</span>
+            ) : (
+              <span className="pill warn"><span className="d" />not a member</span>
+            )}
+          </div>
+        </section>
+
+        {!isMember && isMember !== null && (
+          <div className="join-row">
+            {wallet ? (
+              <>
+                <button onClick={join} disabled={busy}>{busy ? "Joining…" : "Join"}</button>
+                <span className="note">Prove membership — your wallet pays the Midnight fee.</span>
+              </>
+            ) : pickList.length > 0 ? (
+              pickList.map((w) => (
+                <button key={w.key} className="secondary" onClick={() => doConnect(w)} disabled={busy}>
                   {w.name}
                 </button>
-              ))}
-            </div>
-          ) : (
-            <button className="join" onClick={connect} disabled={busy}>
-              {busy ? "Connecting…" : "Connect wallet"}
-            </button>
-          )}
-        </div>
-      )}
+              ))
+            ) : (
+              <>
+                <button className="secondary" onClick={connect} disabled={busy}>
+                  {busy ? "Connecting…" : "Connect wallet"}
+                </button>
+                <span className="note">to join and prove membership.</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       <section className="composer">
         <textarea
@@ -268,16 +279,12 @@ export function App() {
           disabled={busy}
         />
         <div className="row">
-          <span className="count">
-            {draft.length}/{MAX_BODY}
-          </span>
+          <span className="count">{draft.length}/{MAX_BODY}</span>
           <button onClick={post} disabled={busy || !draft.trim()}>
-            {busy ? "Posting…" : "Post — you pay 0 SOL"}
+            {busy ? "Posting…" : "Post"}
           </button>
         </div>
         {status.msg && (
-          // Primary feedback channel — announce to screen readers (assertive for
-          // errors) and don't rely on color alone.
           <p
             className={`status ${status.kind}`}
             role={status.kind === "err" ? "alert" : "status"}
@@ -296,17 +303,17 @@ export function App() {
             <article key={`opt-${o.ts}`} className="post pending">
               <div className="post-head">
                 <span className="who">sending…</span>
-                <span className="reason">confirming on Solana + Midnight</span>
+                <span className="reason">confirming</span>
               </div>
               <p className="body">{o.body}</p>
             </article>
           ))}
         {posts.map((p) => (
-          <article key={p.id} className={p.accepted ? "post ok" : "post rej"}>
+          <article key={p.id} className={p.accepted ? "post" : "post rej"}>
             <div className="post-head">
               <span className="who">{p.accepted ? "member" : "not a member"}</span>
               <span className="reason">
-                {p.accepted ? "joined on Midnight" : "badge has not joined on Midnight"}
+                {p.accepted ? "joined on Midnight" : "not joined on Midnight"}
               </span>
             </div>
             <p className="body">{p.body}</p>
@@ -314,9 +321,7 @@ export function App() {
         ))}
       </section>
 
-      <footer>
-        <span>Solana + Midnight, joined by one EffectStream state machine.</span>
-      </footer>
+      <footer>Solana + Midnight, one EffectStream state machine.</footer>
     </div>
   );
 }
