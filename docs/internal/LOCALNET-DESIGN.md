@@ -175,15 +175,23 @@ arm64 Mac. All are in the vendored stack, none in app code:
    `package.json` (delete the stale binary + reinstall) → it re-fetches
    `solana-test-validator (darwin-arm64)`.
 
-2. **Indexer spo-indexer crash on a fresh chain.** indexer-standalone 4.3.3 bundles
-   an spo-indexer that can crash the whole indexer from `process_next_epoch`
-   ("...did not match any variant of untagged enum InvalidReasons") on a
-   freshly-wiped chain — a startup race the wrapper's block-#1 guard doesn't cover,
-   and intermittent (warm chains skip it). The orchestrator `ProcessConfig` has no
-   restart field, so `scripts/restart-on-failure.ts` supervises the indexer leg
-   (relaunch on non-zero/signal exit, pass a clean exit through, forward shutdown
-   signals) — the same remedy the Docker localnet uses (`restart: on-failure`).
-   Wrapped in both `start.dev.ts` and `start.test.ts`.
+2. **Indexer spo-indexer crash when catching up through a past epoch.**
+   indexer-standalone 4.3.3 bundles an spo-indexer that crashes the whole indexer
+   from `process_next_epoch` ("...did not match any variant of untagged enum
+   InvalidReasons") — and, critically, the vendored `npm-midnight-indexer` wrapper
+   **swallows the crash and exits 0**, so `restart-on-failure` sees a "clean" exit
+   and never relaunches. The real trigger, isolated empirically: an indexer that
+   connects from block 0 and stays connected **rides epoch crossings fine** (verified
+   past slot 300); the crash only hits a *fresh* indexer that must catch up THROUGH
+   an already-crossed epoch — i.e. when the node resumed a persisted, aged chain.
+   The node keeps chain state in `.midnight-data`, so a plain re-run resumed that
+   aged chain and every boot wedged on the indexer. **Fix: a `midnight-reset` step
+   (self-host only) wipes `.midnight-data` + level-db + the stale `contract-*.json`
+   before the node/indexer/deploy start, so every boot begins at genesis and the
+   indexer never catches up through a past epoch.** `restart-on-failure.ts` stays as
+   belt-and-suspenders for the block-#1 startup race on a cold chain. (Earlier notes
+   here miscast this as a startup race that restart-on-failure cures — it does not;
+   the exit-0 masking is why.)
 
 3. **Deploy waits on dust accrual.** On a cold `undeployed` chain the deploy wallet
    holds the 250M genesis NIGHT but 0 dust; the deploy logs "Waiting to receive

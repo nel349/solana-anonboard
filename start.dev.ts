@@ -48,8 +48,30 @@ if (mnPlan.mode === "self-host") {
   );
   for (const p of midnightProcesses)
     delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
-  // The vendored indexer 4.3.3 can crash on a freshly-wiped chain (spo-indexer
-  // process_next_epoch race); the orchestrator has no restart, so supervise it.
+
+  // Start every boot from a fresh chain. The node persists state in .midnight-data,
+  // so a re-run would RESUME an aged chain — and a fresh indexer catching up THROUGH
+  // an already-crossed epoch hits the vendored spo-indexer's process_next_epoch
+  // crash (an untagged-enum decode error) and wedges the whole localnet. Booting
+  // from genesis avoids it: an indexer connected from block 0 rides epoch crossings
+  // without crashing (verified past slot 300). Reset also drops the stale
+  // contract-*.json so the deploy re-runs against the new chain instead of skipping.
+  // Self-host only — never wipe an attached chain we don't own. See
+  // docs/internal/LOCALNET-DESIGN.md.
+  const reset = {
+    name: "midnight-reset",
+    description: "Wipe stale localnet chain state for a fresh boot",
+    cwd: contractsMidnightCwd,
+    args: ["run", "midnight:reset"],
+    waitToExit: true,
+    critical: true,
+  };
+  for (const p of midnightProcesses)
+    (p as { dependsOn?: string[] }).dependsOn = ["midnight-reset", ...(p.dependsOn ?? [])];
+  midnightProcesses = [reset, ...midnightProcesses];
+
+  // Belt-and-suspenders: the indexer can still exit on the block-#1 startup race on
+  // a cold chain; the orchestrator has no restart field, so supervise it.
   const indexer = midnightProcesses.find((p) => p.name === MidnightNames.INDEXER);
   if (indexer)
     indexer.args = ["run", path.join(root, "scripts/restart-on-failure.ts"), ...indexer.args];
