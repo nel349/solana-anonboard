@@ -79,11 +79,13 @@ export interface IInsertPostParams {
 }
 // Idempotent: a re-delivered log (reorg / re-sync) must not create a duplicate
 // row. DO NOTHING preserves the existing row, including any backfilled accepted
-// status (see acceptPostsForAuthor).
+// status (see acceptPostsForAuthor). The conflict target is the uq_posts_identity
+// index (author, slot, md5(body)) — the body is hashed so an oversized post can't
+// blow the btree row limit and wedge the block (see migrations/001-anonboard.sql).
 export const insertPost = prepare<IInsertPostParams, void>(
   `INSERT INTO posts (author, body, slot, block_height, accepted, reason)
 VALUES (:author!, :body!, :slot!, :block_height!, :accepted!, :reason!)
-ON CONFLICT (author, slot, body) DO NOTHING`,
+ON CONFLICT (author, slot, md5(body)) DO NOTHING`,
 );
 
 export interface IGetPostsResult {
