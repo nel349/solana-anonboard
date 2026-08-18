@@ -11,10 +11,11 @@
 // you where the app is. Ctrl-C still tears the whole stack down. Raw logs live in
 // .dev.log (follow with `bun run dev:logs`).
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
+import { DEV_PORTS } from "./dev-ports.ts";
 
 const root = path.resolve(import.meta.dirname!, "..");
 const LOG = path.join(root, ".dev.log");
@@ -88,25 +89,43 @@ child.stdout.on("data", capture);
 child.stderr.on("data", capture);
 
 let stopping = false;
-function shutdown(sig: NodeJS.Signals) {
+function freePorts(): number {
+  let n = 0;
+  for (const port of DEV_PORTS) {
+    const r = spawnSync("lsof", ["-nP", `-tiTCP:${port}`, "-sTCP:LISTEN"], { encoding: "utf8" });
+    for (const pid of (r.stdout || "")
+      .split("\n")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((x) => Number.isInteger(x) && x > 0 && x !== process.pid)) {
+      try { process.kill(pid, "SIGKILL"); n++; } catch { /* already gone */ }
+    }
+  }
+  return n;
+}
+// Ctrl-C always fully stops the stack — kill what we started, then force-free the
+// ports (reaps an attached localnet the orchestrator won't). Same in both modes.
+function teardown() {
   if (stopping) return;
   stopping = true;
   process.stdout.write(`\n${c.dim}stopping the stack…${c.reset}\n`);
-  child.kill(sig);
-}
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-child.on("exit", (code) => {
-  if (stopping) { process.exit(code ?? 0); return; }
-  // The orchestrator returns (rather than staying foreground) when it attached to an
-  // already-running localnet — its long-running services are managed in the background.
-  // The stack is still up; say so instead of silently dropping to a prompt.
-  if (ready && (code ?? 0) === 0) {
-    process.stdout.write(
-      `\n${c.dim}The stack is running in the background (attached to a running localnet).\n` +
-      `  status: bun run dev:status   logs: bun run dev:logs   stop: bun run dev:stop${c.reset}\n\n`,
-    );
+  if (child.exitCode === null) { try { child.kill("SIGTERM"); } catch { /* gone */ } }
+  setTimeout(() => {
+    const n = freePorts();
+    process.stdout.write(`${c.dim}stopped${n ? ` (freed ${n} leftover)` : ""}.${c.reset}\n`);
     process.exit(0);
+  }, 1500);
+}
+process.on("SIGINT", teardown);
+process.on("SIGTERM", teardown);
+child.on("exit", (code) => {
+  if (stopping) return; // teardown() will exit
+  // The orchestrator returns (rather than staying foreground) when it attached to an
+  // already-running localnet. Keep holding the terminal anyway, so `bun run dev` behaves
+  // the same in both modes — foreground, and Ctrl-C stops everything.
+  if (ready && (code ?? 0) === 0) {
+    process.stdout.write(`${c.dim}(attached to a running localnet — holding here; Ctrl-C stops the stack)${c.reset}\n`);
+    setInterval(() => {}, 60_000); // keep the event loop alive
+    return;
   }
   if (code) {
     process.stdout.write(
@@ -178,7 +197,7 @@ function banner() {
     line("Operator", "http://localhost:3335") + "\n" +
     line("Batcher", "http://localhost:3334") + "\n" +
     `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}\n\n` +
-    `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} bun run dev:stop  ${c.dim}(or Ctrl-C if still attached)${c.reset}\n\n`,
+    `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}\n\n`,
   );
 }
 

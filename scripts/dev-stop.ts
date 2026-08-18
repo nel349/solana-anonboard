@@ -7,8 +7,7 @@
 // stop, then force-frees anonboard's fixed ports so a clean boot always follows.
 
 import { spawnSync } from "node:child_process";
-
-const PORTS = [9944, 8088, 6300, 8899, 9900, 9999, 3334, 3335, 5432, 5173, 4747, 30333];
+import { DEV_PORTS as PORTS } from "./dev-ports.ts";
 
 // 1) ask the orchestrator to stop what it owns (best-effort).
 spawnSync("bunx", ["orchestrator", "stop"], { stdio: "inherit" });
