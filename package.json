@@ -12,6 +12,8 @@
   ],
   "scripts": {
     "dev": "bun run scripts/dev.ts",
+  "dev:preview": "bun --env-file=.env.preview run scripts/dev.ts",
+  "dev:preprod": "bun --env-file=.env.preprod run scripts/dev.ts",
   "dev:logs": "tail -n +1 -f .dev.log",
   "dev:status": "bunx orchestrator status",
   "dev:stop": "bun run scripts/dev-stop.ts",

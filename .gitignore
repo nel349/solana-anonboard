@@ -38,3 +38,10 @@ badge.json
 # is seeded from a clean copy (git init && git add .). They remain tracked here.
 docs/internal/
 tasks/
+
+# local secrets (wallet seeds, owner keys) — never commit
+.env
+.env.preview
+.env.preprod
+.env.*.local
+!.env.example
