@@ -29,7 +29,10 @@ const c = {
 };
 const isTTY = Boolean(process.stdout.isTTY);
 
-type Svc = { key: string; label: string; port: number; link?: string; http?: string; note?: string; primary?: boolean };
+// `blocking: false` = the ready banner does NOT wait on this service; it warms up in the
+// background and is announced when it comes up. Used for the operator on hosted nets: it's
+// only needed to JOIN, and its cold dust sync (~80s) shouldn't delay "ready to post".
+type Svc = { key: string; label: string; port: number; link?: string; http?: string; note?: string; primary?: boolean; blocking?: boolean };
 
 // On a hosted net (preview/preprod) the Midnight node + indexer are remote, so only
 // the local proof server is worth port-checking; on `undeployed` everything is local.
@@ -53,7 +56,7 @@ const SERVICES: Svc[] = [
   // syncs dust, finds the contract). Gate its ✓ on /health (200 only when ready),
   // not just the open port, so the ready banner never fires while a join would still
   // get "operator warming up".
-  { key: "operator", label: "Operator", port: 3335, http: "http://localhost:3335/health", link: "http://localhost:3335", note: HOSTED ? "warming up — syncing wallet + dust (a few min on a hosted net)" : "warming up…" },
+  { key: "operator", label: "Operator", port: 3335, http: "http://localhost:3335/health", link: "http://localhost:3335", note: HOSTED ? "warming — join enabled once dust syncs (~1 min); posting works now" : "warming up…", blocking: !HOSTED },
   { key: "batcher", label: "Batcher", port: 3334, link: "http://localhost:3334" },
   { key: "frontend", label: "Frontend", port: 5173, link: "http://localhost:5173", primary: true },
 ];
@@ -260,13 +263,14 @@ function render() {
 }
 
 function banner() {
+  const warming = SERVICES.some((sv) => sv.blocking === false && !states[sv.key]);
   const line = (label: string, url: string, tail = "") =>
     `  ${c.dim}${pad(label, 10)}${c.reset}${c.cyan}${url}${c.reset}${tail ? `  ${c.dim}${tail}${c.reset}` : ""}`;
   process.stdout.write(
-    `\n${c.green}${c.bold}✓ anonboard is ready${c.reset}\n\n` +
+    `\n${c.green}${c.bold}✓ anonboard is ready${warming ? " to post" : ""}${c.reset}\n\n` +
     line("Open", "http://localhost:5173", "← the app") + "\n" +
     line("Sync API", "http://localhost:9999/api/posts") + "\n" +
-    line("Operator", "http://localhost:3335") + "\n" +
+    line("Operator", "http://localhost:3335", warming ? "warming — Join enabled shortly (~1 min)" : "") + "\n" +
     line("Batcher", "http://localhost:3334") + "\n" +
     `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}\n\n` +
     `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}\n\n`,
@@ -275,6 +279,8 @@ function banner() {
 
 // Port-poll updates the checklist state; the animation ticks separately so the spinner
 // and the live activity line keep moving between polls.
+// Deferred (non-blocking) services already announced after the banner fired.
+const announced = new Set<string>();
 async function poll() {
   const s: Record<string, boolean> = {};
   await Promise.all(
@@ -292,14 +298,30 @@ async function poll() {
   );
   states = s;
 
-  if (SERVICES.every((sv) => states[sv.key]) && !ready) {
+  // Fire the banner once the BLOCKING services are up (posting works). Non-blocking
+  // services (the operator, needed only to join) warm up in the background and are
+  // announced as they come up, so their ~80s dust sync doesn't delay "ready to post".
+  const coreReady = SERVICES.every((sv) => sv.blocking === false || states[sv.key]);
+  const deferred = SERVICES.filter((sv) => sv.blocking === false);
+
+  if (coreReady && !ready) {
     ready = true;
-    render(); // final checklist, all ✓ (no spinner / activity line)
+    render(); // final checklist; core ✓, any deferred service still warming
     banner();
-    return; // stop polling; the child keeps the stack alive, Ctrl-C tears it down
+    // don't return — keep polling to announce the deferred services when they come up
+  }
+  if (ready) {
+    for (const sv of deferred) {
+      if (states[sv.key] && !announced.has(sv.key)) {
+        announced.add(sv.key);
+        const tail = sv.key === "operator" ? " — Join is now enabled" : "";
+        process.stdout.write(`  ${MARK.up} ${c.bold}${sv.label} ready${c.reset}${c.dim}${tail}.${c.reset}\n`);
+      }
+    }
+    if (deferred.every((sv) => states[sv.key])) return; // everything up now — stop polling
   }
   if (!isTTY && !ready) render(); // non-TTY: print progress each poll (no animation)
-  if (!stopping && !ready) setTimeout(poll, 1000);
+  if (!stopping && (!ready || deferred.some((sv) => !states[sv.key]))) setTimeout(poll, 1000);
 }
 
 function tick() {
