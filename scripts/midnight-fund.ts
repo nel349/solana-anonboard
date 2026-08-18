@@ -1,4 +1,4 @@
-// ATTACH-mode fund step — best-effort, NON-BLOCKING.
+// ATTACH-mode fund step — best-effort, for the `undeployed` localnet only.
 //
 // On a standard `undeployed` localnet the anonboard deploy wallet *is* the
 // genesis wallet, so it's already funded and this is a no-op (verified: deploy
@@ -6,6 +6,12 @@
 // chain we attempt an idempotent top-up via `mn` (midnight-wallet-cli), but we
 // NEVER block the attach path — if the wallet is truly unfunded the deploy
 // surfaces that itself with a clear message.
+//
+// On a HOSTED net (preview/preprod) this does not apply: the deploy wallet is
+// funded via the faucet, and `mn airdrop` only works against a local genesis
+// chain — with no local node running, it would retry `ws://localhost:9944` for
+// the full 3-min timeout and block the deploy (and the sync node) for nothing.
+// So we skip it there.
 //
 // (Solana self-funds the same way via the airdrop-batcher step.)
 
@@ -37,6 +43,17 @@ function jsonFrom(s: string): any {
 }
 
 function main(): void {
+  // Hosted nets are faucet-funded and have no local genesis chain for `mn airdrop` to
+  // reach — running it would hang on ws://localhost:9944 for the 3-min timeout and block
+  // the deploy/sync. Only the undeployed localnet uses this step.
+  const network = process.env.MIDNIGHT_NETWORK_ID ?? "undeployed";
+  if (network !== "undeployed") {
+    console.log(
+      `[midnight-fund] ${network} is a hosted net — deploy wallet is faucet-funded; skipping the local-genesis top-up.`,
+    );
+    process.exit(0);
+  }
+
   console.log("[midnight-fund] attach mode — ensuring the deploy wallet has funds (best-effort)…");
 
   if (spawnSync(MN, ["--version"], { encoding: "utf8" }).status !== 0) {
