@@ -144,36 +144,66 @@ function deployStatus(syncUp: boolean): { mark: string; note: string } {
   return { mark: "wait", note: "" };
 }
 
-const MARK: Record<string, string> = {
+const MARK = {
   up: `${c.green}✓${c.reset}`,
-  retry: `${c.yellow}⟳${c.reset}`,
   wait: `${c.gray}·${c.reset}`,
 };
+const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 function pad(s: string, n: number) { return s + " ".repeat(Math.max(0, n - s.length)); }
+const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+// The latest meaningful log line, shown live so a slow step reads as "working", not frozen.
+// Skip blank lines and bare "[process]" tag lines (which carry no message).
+function lastActivity(): string {
+  const lines = stripAnsi(logTail)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !/^\[[^\]]+\]$/.test(l));
+  const last = lines[lines.length - 1] ?? "";
+  return last.length > 92 ? last.slice(0, 92) + "…" : last;
+}
 
 const started = Date.now();
 let lastLines = 0;
 let ready = false;
+let frame = 0;
+let states: Record<string, boolean> = {};
 
-function render(states: Record<string, boolean>) {
-  const elapsed = Math.floor((Date.now() - started) / 1000);
-  const lines: string[] = [];
-  lines.push(`${c.bold}Starting anonboard localnet${c.reset}  ${c.dim}(${elapsed}s · logs → .dev.log)${c.reset}`);
-  lines.push("");
-  const row = (mark: string, label: string, right: string, note?: string) =>
-    `  ${MARK[mark] ?? "·"} ${pad(label, 24)}${c.dim}${pad(right, 34)}${c.reset}` +
-    (note ? `${c.dim}${note}${c.reset}` : "");
-
+type Row = { label: string; right: string; status: "up" | "retry" | "wait"; note?: string };
+function rows(): Row[] {
+  const out: Row[] = [];
   for (const s of SERVICES) {
     if (s.key === "sync") {
       const d = deployStatus(states.sync);
-      lines.push(row(d.mark, "Contract deploy", "", d.note));
+      out.push({ label: "Contract deploy", right: "", status: d.mark as Row["status"], note: d.note });
     }
     const up = states[s.key];
-    const mark = up ? "up"
-      : s.key === "indexer" && /spo-indexer exited with ERROR/.test(logTail) ? "retry"
-      : "wait";
-    lines.push(row(mark, s.label, s.link ?? `:${s.port}`, up ? "" : s.note ?? ""));
+    const status: Row["status"] = up ? "up"
+      : s.key === "indexer" && /spo-indexer exited with ERROR/.test(logTail) ? "retry" : "wait";
+    out.push({ label: s.label, right: s.link ?? `:${s.port}`, status, note: up ? "" : s.note });
+  }
+  return out;
+}
+
+function render() {
+  const elapsed = Math.floor((Date.now() - started) / 1000);
+  const rs = rows();
+  const active = rs.findIndex((r) => r.status !== "up"); // the step we're waiting on
+  const spin = SPIN[frame % SPIN.length];
+  const lines: string[] = [];
+  lines.push(`${c.bold}Starting anonboard localnet${c.reset}  ${c.dim}(${elapsed}s · logs → .dev.log)${c.reset}`);
+  lines.push("");
+  rs.forEach((r, i) => {
+    const mark =
+      r.status === "up" ? MARK.up
+      : r.status === "retry" ? `${c.yellow}${spin}${c.reset}`
+      : i === active ? `${c.cyan}${spin}${c.reset}`
+      : MARK.wait;
+    const note = r.status === "up" ? "" : i === active && !r.note ? "working…" : r.note ?? "";
+    lines.push(`  ${mark} ${pad(r.label, 24)}${c.dim}${pad(r.right, 34)}${c.reset}` + (note ? `${c.dim}${note}${c.reset}` : ""));
+  });
+  if (active >= 0) {
+    lines.push("");
+    lines.push(`  ${c.dim}↳ ${lastActivity() || "…"}${c.reset}`);
   }
 
   const block = lines.join("\n") + "\n";
@@ -182,7 +212,6 @@ function render(states: Record<string, boolean>) {
     process.stdout.write(block);
     lastLines = lines.length;
   } else {
-    // non-TTY: only print when something changed (avoid spam)
     process.stdout.write(block + "\n");
   }
 }
@@ -201,21 +230,31 @@ function banner() {
   );
 }
 
-async function loop() {
+// Port-poll updates the checklist state; the animation ticks separately so the spinner
+// and the live activity line keep moving between polls.
+async function poll() {
   const results = await Promise.all(SERVICES.map(isUp));
-  const states: Record<string, boolean> = {};
-  SERVICES.forEach((s, i) => (states[s.key] = results[i]));
+  const s: Record<string, boolean> = {};
+  SERVICES.forEach((sv, i) => (s[sv.key] = results[i]));
+  states = s;
 
-  if (!ready) render(states);
-
-  const allUp = SERVICES.every((s) => states[s.key]);
-  if (allUp && !ready) {
+  if (SERVICES.every((sv) => states[sv.key]) && !ready) {
     ready = true;
+    render(); // final checklist, all ✓ (no spinner / activity line)
     banner();
     return; // stop polling; the child keeps the stack alive, Ctrl-C tears it down
   }
-  if (!stopping) setTimeout(loop, 1200);
+  if (!isTTY && !ready) render(); // non-TTY: print progress each poll (no animation)
+  if (!stopping && !ready) setTimeout(poll, 1000);
+}
+
+function tick() {
+  if (ready || stopping || !isTTY) return;
+  frame++;
+  render();
+  setTimeout(tick, 120);
 }
 
 process.stdout.write(`${c.dim}booting… first cold start downloads toolchains and waits on dust; give it a few minutes.${c.reset}\n\n`);
-void loop();
+void poll();
+tick();
