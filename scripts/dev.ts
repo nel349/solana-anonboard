@@ -16,6 +16,9 @@ import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { DEV_PORTS } from "./dev-ports.ts";
+import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
+import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
+import readline from "node:readline/promises";
 
 const root = path.resolve(import.meta.dirname!, "..");
 const LOG = path.join(root, ".dev.log");
@@ -33,7 +36,10 @@ type Svc = { key: string; label: string; port: number; link?: string; http?: str
 const NET = process.env.MIDNIGHT_NETWORK_ID || "undeployed";
 const HOSTED = NET !== "undeployed";
 const midnightRows: Svc[] = HOSTED
-  ? [{ key: "proof", label: "Midnight proof server", port: 6300, note: `local; submits to ${NET} (hosted)` }]
+  ? [
+      { key: "proof", label: "Midnight proof server", port: 6300, note: `local; submits to ${NET} (hosted)` },
+      { key: "indexerProxy", label: "Indexer rate-limit proxy", port: 8079, note: `local; smooths requests to ${NET}` },
+    ]
   : [
       { key: "midnight", label: "Midnight node", port: 9944 },
       { key: "proof", label: "Midnight proof server", port: 6300 },
@@ -42,8 +48,12 @@ const midnightRows: Svc[] = HOSTED
 const SERVICES: Svc[] = [
   { key: "solana", label: "Solana validator", port: 8899 },
   ...midnightRows,
-  { key: "sync", label: "Sync node API", port: 9999, http: "http://localhost:9999/api/posts", link: "http://localhost:9999/api/posts" },
-  { key: "operator", label: "Operator", port: 3335, link: "http://localhost:3335" },
+  { key: "sync", label: "Sync node API", port: 9999, http: "http://localhost:9999/api/posts", link: "http://localhost:9999/api/posts", note: HOSTED ? `catching up ${NET} badges (posts work once it's up)` : undefined },
+  // The operator binds its port immediately but then warms up (builds the wallet,
+  // syncs dust, finds the contract). Gate its ✓ on /health (200 only when ready),
+  // not just the open port, so the ready banner never fires while a join would still
+  // get "operator warming up".
+  { key: "operator", label: "Operator", port: 3335, http: "http://localhost:3335/health", link: "http://localhost:3335", note: HOSTED ? "warming up — syncing wallet + dust (a few min on a hosted net)" : "warming up…" },
   { key: "batcher", label: "Batcher", port: 3334, link: "http://localhost:3334" },
   { key: "frontend", label: "Frontend", port: 5173, link: "http://localhost:5173", primary: true },
 ];
@@ -58,7 +68,7 @@ function tcpOpen(port: number, timeout = 700): Promise<boolean> {
     s.setTimeout(timeout, () => fin(false));
   });
 }
-async function httpOk(url: string, timeout = 900): Promise<boolean> {
+async function httpOk(url: string, timeout = 2500): Promise<boolean> {
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), timeout);
@@ -67,10 +77,41 @@ async function httpOk(url: string, timeout = 900): Promise<boolean> {
     return r.ok;
   } catch { return false; }
 }
-async function isUp(s: Svc): Promise<boolean> {
-  if (!(await tcpOpen(s.port))) return false;
-  return s.http ? httpOk(s.http) : true;
+
+// Reuse-or-redeploy prompt. Blocks the boot because the answer has to be known before
+// the deploy step runs. Interactive terminals only; auto-reuses after 20s so it never
+// hangs. "n" sets ANONBOARD_REDEPLOY, which start.dev.ts forwards to the deploy step.
+async function maybePromptRedeploy(): Promise<void> {
+  if (!isTTY) return;
+  const existing = getDeployment(NET);
+  if (!existing) return;
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const when = existing.deployedAt ? `, deployed ${existing.deployedAt.slice(0, 10)}` : "";
+  const answer = (
+    await Promise.race([
+      rl.question(
+        `\n${c.bold}Contract already deployed on ${NET}${c.reset}: ` +
+          `${c.cyan}${existing.contractAddress.slice(0, 16)}…${c.reset} ` +
+          `${c.dim}(block ${existing.deployBlock}${when})${c.reset}\n` +
+          `Reuse it? ${c.dim}[Y/n]  Enter reuses · n redeploys · auto-reuse in 20s${c.reset} `,
+      ),
+      new Promise<string>((res) => setTimeout(() => res(""), 20_000)),
+    ])
+  )
+    .trim()
+    .toLowerCase();
+  rl.close();
+  if (answer === "n" || answer === "no" || answer === "redeploy") {
+    process.env.ANONBOARD_REDEPLOY = "1";
+    process.stdout.write(`${c.yellow}→ redeploying a fresh contract on ${NET}.${c.reset}\n`);
+  } else {
+    process.stdout.write(`${c.dim}→ reusing the existing contract on ${NET}.${c.reset}\n`);
+  }
 }
+await maybePromptRedeploy();
+// Reusing a recorded contract means the deploy step is a no-op, so its checklist row
+// shouldn't wait on the sync node — mark it done immediately.
+const reusingContract = Boolean(getDeployment(NET)) && !process.env.ANONBOARD_REDEPLOY;
 
 // ── start the real stack, logs to file ──────────────────────────────────────
 fs.writeFileSync(LOG, "");
@@ -138,10 +179,12 @@ child.on("exit", (code) => {
 });
 
 // ── deploy phase (the long pole: waits on dust) inferred from the log ────────
+// Show the deploy's *current* step (building wallet, syncing dust with progress,
+// submitting) rather than a flat "working…", read from the deploy process's log.
 function deployStatus(syncUp: boolean): { mark: string; note: string } {
-  if (syncUp || /Deployment successful/.test(logTail)) return { mark: "up", note: "" };
-  if (/Waiting to receive tokens/.test(logTail)) return { mark: "retry", note: "waiting for dust (~1-2 min, normal)" };
-  return { mark: "wait", note: "" };
+  if (reusingContract || syncUp || /Deployment successful/.test(logTail)) return { mark: "up", note: "" };
+  const step = deployStep(logTail);
+  return step ? { mark: "retry", note: step } : { mark: "wait", note: "" };
 }
 
 const MARK = {
@@ -150,7 +193,6 @@ const MARK = {
 };
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 function pad(s: string, n: number) { return s + " ".repeat(Math.max(0, n - s.length)); }
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 // The latest meaningful log line, shown live so a slow step reads as "working", not frozen.
 // Skip blank lines and bare "[process]" tag lines (which carry no message).
 function lastActivity(): string {
@@ -174,7 +216,7 @@ function rows(): Row[] {
   for (const s of SERVICES) {
     if (s.key === "sync") {
       const d = deployStatus(states.sync);
-      out.push({ label: "Contract deploy", right: "", status: d.mark as Row["status"], note: d.note });
+      out.push({ label: reusingContract ? "Contract deploy (reused)" : "Contract deploy", right: "", status: d.mark as Row["status"], note: d.note });
     }
     const up = states[s.key];
     const status: Row["status"] = up ? "up"
@@ -190,7 +232,8 @@ function render() {
   const active = rs.findIndex((r) => r.status !== "up"); // the step we're waiting on
   const spin = SPIN[frame % SPIN.length];
   const lines: string[] = [];
-  lines.push(`${c.bold}Starting anonboard localnet${c.reset}  ${c.dim}(${elapsed}s · logs → .dev.log)${c.reset}`);
+  const stackLabel = HOSTED ? `on ${NET} (hosted)` : "localnet";
+  lines.push(`${c.bold}Starting anonboard ${stackLabel}${c.reset}  ${c.dim}(${elapsed}s · logs → .dev.log)${c.reset}`);
   lines.push("");
   rs.forEach((r, i) => {
     const mark =
@@ -206,7 +249,7 @@ function render() {
     lines.push(`  ${c.dim}↳ ${lastActivity() || "…"}${c.reset}`);
   }
 
-  const block = lines.join("\n") + "\n";
+  const block = lines.map((l) => clampWidth(l, process.stdout.columns ?? 0, c.reset)).join("\n") + "\n";
   if (isTTY) {
     if (lastLines) process.stdout.write(`\x1b[${lastLines}A\x1b[0J`);
     process.stdout.write(block);
@@ -233,9 +276,20 @@ function banner() {
 // Port-poll updates the checklist state; the animation ticks separately so the spinner
 // and the live activity line keep moving between polls.
 async function poll() {
-  const results = await Promise.all(SERVICES.map(isUp));
   const s: Record<string, boolean> = {};
-  SERVICES.forEach((sv, i) => (s[sv.key] = results[i]));
+  await Promise.all(
+    SERVICES.map(async (sv) => {
+      // A dead port un-sticks the row (so a crashed service after warmup goes red, and the
+      // banner won't claim ready). A slow health check on a LIVE port stays green (sticky),
+      // so transient slowness (e.g. /api/posts under heavy catch-up) doesn't flip it back.
+      if (!(await tcpOpen(sv.port))) {
+        s[sv.key] = false;
+        return;
+      }
+      const up = sv.http ? await httpOk(sv.http) : true;
+      s[sv.key] = states[sv.key] || up;
+    }),
+  );
   states = s;
 
   if (SERVICES.every((sv) => states[sv.key]) && !ready) {

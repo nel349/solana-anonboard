@@ -36,19 +36,54 @@ if (solanaValidatorIdx >= 0) {
 // the sync node, deploy, and operator use the exact URLs the frontend does.
 const netId = process.env.MIDNIGHT_NETWORK_ID ?? "undeployed";
 const net = midnightNetwork(netId);
+const hosted = netId !== "undeployed";
+
+// On a hosted net, every server-side indexer client (sync node, deploy, operator,
+// fund) is routed through a local rate-limiting proxy (packages/node/indexer-proxy.ts)
+// so their combined request rate stays under the hosted indexer's per-IP WAF limit.
+// Clients see only the local URL — same path as the real indexer — and the proxy
+// forwards to the real origin. On undeployed there is no proxy: clients talk to the
+// local indexer directly.
+const INDEXER_PROXY_PORT = 8079;
+const proxied = (real: string, scheme: "http" | "ws"): string =>
+  `${scheme}://127.0.0.1:${INDEXER_PROXY_PORT}${new URL(real).pathname}`;
+
 const midnightEnv = {
-  MIDNIGHT_INDEXER_HTTP: net.indexer,
-  MIDNIGHT_INDEXER_WS: net.indexerWS,
+  MIDNIGHT_INDEXER_HTTP: hosted ? proxied(net.indexer, "http") : net.indexer,
+  MIDNIGHT_INDEXER_WS: hosted ? proxied(net.indexerWS, "ws") : net.indexerWS,
   MIDNIGHT_NODE_HTTP: net.node,
   MIDNIGHT_PROOF_SERVER_URL: net.proofServer,
+  // A hosted wallet must finish syncing dust before it can pay tx fees (deploy,
+  // add_to_roster, the join fee). The wallet build returns as soon as its legs reach
+  // tip, so this is a ceiling, not a fixed wait: on preview all legs complete in ~230s;
+  // preprod's dust ledger is heavier and takes longer, so the ceiling is generous.
+  // SKIP_WAIT_FOR_FUNDS is only a backstop — if a leg is pathologically slow, proceed
+  // once the ceiling elapses (dust has synced by then) rather than hang forever.
+  // Undeployed syncs instantly, so neither applies there.
+  ...(hosted
+    ? { MIDNIGHT_SKIP_WAIT_FOR_FUNDS: "true", MIDNIGHT_WALLET_SYNC_TIMEOUT_MS: "900000" }
+    : {}),
 };
-const hosted = netId !== "undeployed";
+
+// The proxy process itself talks to the REAL indexer origins (its clients talk to it).
+const indexerProxyEnv = {
+  INDEXER_PROXY_PORT: String(INDEXER_PROXY_PORT),
+  INDEXER_PROXY_HTTP_ORIGIN: new URL(net.indexer).origin,
+  INDEXER_PROXY_WS_ORIGIN: `${new URL(net.indexerWS).protocol}//${new URL(net.indexerWS).host}`,
+};
+
 const contractsMidnightCwd = path.join(root, "packages/contracts-midnight");
-const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!", ...midnightEnv };
+const deployEnv = {
+  MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!",
+  ...midnightEnv,
+  // Forwarded from the dev wrapper's reuse/redeploy prompt: when set, the deploy step
+  // deploys a fresh contract instead of skipping because a record exists.
+  ...(process.env.ANONBOARD_REDEPLOY ? { ANONBOARD_REDEPLOY: process.env.ANONBOARD_REDEPLOY } : {}),
+};
 
 // Only probe the local ports when we're actually running a local chain.
 const mnPlan = hosted ? null : midnightPlan();
-if (mnPlan) console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
+if (mnPlan) console.log(`[network] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
 
 let midnightProcesses;
 if (hosted) {
@@ -56,9 +91,27 @@ if (hosted) {
   // only the LOCAL proof server (it proves here, then submits to the hosted node),
   // fund the deploy wallet on that net, and deploy to it. Solana stays local. Requires
   // a real MIDNIGHT_OWNER_KEY and a funded MIDNIGHT_WALLET_SEED (see README).
-  console.log(`[localnet] Midnight -> hosted (${netId}); local proof server + deploy`);
+  console.log(`[network] Midnight -> hosted (${netId}); local proof server + deploy`);
   const nodeWs = net.node.replace(/^http/, "ws"); // http->ws, https->wss
   midnightProcesses = [
+    {
+      name: "midnight-indexer-proxy",
+      description: `Rate-limiting gateway in front of the ${netId} indexer`,
+      cwd: root,
+      args: ["run", "packages/node/indexer-proxy.ts"],
+      env: indexerProxyEnv,
+      link: `http://127.0.0.1:${INDEXER_PROXY_PORT}`,
+      stopProcessAtPort: [INDEXER_PROXY_PORT],
+    },
+    {
+      name: "midnight-indexer-proxy-wait",
+      description: "Wait for the indexer proxy",
+      cwd: contractsMidnightCwd,
+      args: ["run", "midnight-indexer-proxy:wait"],
+      env: indexerProxyEnv,
+      waitToExit: true,
+      dependsOn: ["midnight-indexer-proxy"],
+    },
     {
       name: "midnight-proof-server",
       description: "Midnight proof server (local; proves then submits to the hosted node)",
@@ -81,7 +134,7 @@ if (hosted) {
       cwd: root,
       args: ["run", "scripts/midnight-fund.ts"],
       waitToExit: true,
-      dependsOn: ["midnight-contract-compile"],
+      dependsOn: ["midnight-contract-compile", "midnight-indexer-proxy-wait"],
       env: midnightEnv,
     },
     {
@@ -92,7 +145,12 @@ if (hosted) {
       env: deployEnv,
       waitToExit: true,
       critical: true,
-      dependsOn: ["midnight-contract-compile", "midnight-proof-server-wait", "midnight-fund"],
+      dependsOn: [
+        "midnight-contract-compile",
+        "midnight-proof-server-wait",
+        "midnight-fund",
+        "midnight-indexer-proxy-wait",
+      ],
     },
   ];
 } else if (mnPlan!.mode === "self-host") {

@@ -2,10 +2,11 @@
 // add_to_roster) — it never sees a member's secret. Dev-only: single funded
 // wallet, permissive CORS, no auth.
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
+import { configureMidnightNodeProviders } from "@effectstream/midnight-contracts";
 import {
-  buildWalletAndWaitForFunds,
-  configureMidnightNodeProviders,
-} from "@effectstream/midnight-contracts";
+  buildWalletFacade,
+  syncAndWaitForFunds,
+} from "@effectstream/midnight-contracts/wallet-info";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
@@ -36,7 +37,7 @@ function serialize<T>(work: () => Promise<T>): Promise<T> {
 
 type Ready = {
   contractAddress: string;
-  wallet: Awaited<ReturnType<typeof buildWalletAndWaitForFunds>>;
+  wallet: Awaited<ReturnType<typeof buildWalletFacade>>;
   owner: { callTx: { add_to_roster(pk: Uint8Array): Promise<unknown> } };
   publicDataProvider: {
     queryContractState(addr: string): Promise<{ data: unknown } | null>;
@@ -58,48 +59,65 @@ async function warmup(): Promise<void> {
     proofServer: midnightNetworkConfig.proofServer,
   };
   log("building the operator wallet (owner + fee-payer)…");
-  const wallet = await buildWalletAndWaitForFunds(
+  const wallet = await buildWalletFacade(
     urls as never,
     midnightNetworkConfig.walletSeed!,
     midnightNetworkConfig.id,
   );
-  const zkConfigPath = path.resolve(
-    import.meta.dirname!,
-    "..",
-    "contracts-midnight/contract-anonboard/src/managed",
-  );
-  const compiled = CompiledContract.make(
-    "contract-anonboard",
-    Anonboard.Contract as never,
-  ).pipe(
-    CompiledContract.withWitnesses(witnesses as never),
-    CompiledContract.withCompiledFileAssets(zkConfigPath),
-  );
-  const providers = configureMidnightNodeProviders(
-    wallet.wallet,
-    wallet.zswapSecretKeys,
-    wallet.walletZswapSecretKeys,
-    wallet.dustSecretKey,
-    wallet.walletDustSecretKey,
-    urls as never,
-    "operator-admin-state",
-    zkConfigPath,
-    wallet.unshieldedKeystore,
-  );
-  const owner = (await findDeployedContract(providers as never, {
-    contractAddress: info.contractAddress,
-    compiledContract: compiled as never,
-    privateStateId: "operatorAdminState",
-    initialPrivateState: createAnonboardPrivateState(OWNER_SECRET_KEY),
-  } as never)) as never as Ready["owner"];
+  try {
+    // The operator only spends dust (roster fees), so wait for dust + unshielded and skip
+    // WAITING on the shielded scan (the hosted-net long pole for readiness). skipShielded
+    // only drops shielded from the wait filter — the shielded sub-wallet still syncs in the
+    // background — so the operator is ready as soon as dust is synced. Throws on timeout.
+    log("syncing wallet — dust + unshielded (not waiting on the shielded scan)…");
+    await syncAndWaitForFunds(wallet.wallet as never, { skipShielded: true });
+    const zkConfigPath = path.resolve(
+      import.meta.dirname!,
+      "..",
+      "contracts-midnight/contract-anonboard/src/managed",
+    );
+    const compiled = CompiledContract.make(
+      "contract-anonboard",
+      Anonboard.Contract as never,
+    ).pipe(
+      CompiledContract.withWitnesses(witnesses as never),
+      CompiledContract.withCompiledFileAssets(zkConfigPath),
+    );
+    const providers = configureMidnightNodeProviders(
+      wallet.wallet,
+      wallet.zswapSecretKeys,
+      wallet.walletZswapSecretKeys,
+      wallet.dustSecretKey,
+      wallet.walletDustSecretKey,
+      urls as never,
+      "operator-admin-state",
+      zkConfigPath,
+      wallet.unshieldedKeystore,
+    );
+    const owner = (await findDeployedContract(providers as never, {
+      contractAddress: info.contractAddress,
+      compiledContract: compiled as never,
+      privateStateId: "operatorAdminState",
+      initialPrivateState: createAnonboardPrivateState(OWNER_SECRET_KEY),
+    } as never)) as never as Ready["owner"];
 
-  ready = {
-    contractAddress: info.contractAddress,
-    wallet,
-    owner,
-    publicDataProvider: providers.publicDataProvider as never,
-  };
-  log(`ready. contract ${info.contractAddress.slice(0, 10)}… on :${PORT}`);
+    ready = {
+      contractAddress: info.contractAddress,
+      wallet,
+      owner,
+      publicDataProvider: providers.publicDataProvider as never,
+    };
+    log(`ready. contract ${info.contractAddress.slice(0, 10)}… on :${PORT}`);
+  } catch (e) {
+    // Stop the wallet's sync subscriptions before warmupWithRetry builds a fresh facade,
+    // else each retry leaks an actively-syncing wallet (more indexer load + memory).
+    try {
+      await (wallet.wallet as { stop?: () => Promise<void> }).stop?.();
+    } catch {
+      /* best effort */
+    }
+    throw e;
+  }
 }
 
 function isMemberOnRoster(r: Ready, memberPk: Uint8Array): Promise<boolean> {
@@ -167,8 +185,36 @@ Bun.serve({
     return json({ ok: false, error: "not found" }, 404, origin);
   },
 });
-log(`listening on http://localhost:${PORT} (warming up…)`);
-warmup().catch((e) => {
-  console.error("[operator] warmup failed:", e);
-  process.exit(1);
+// A transient indexer error during warm-up (a rate-limit blip, a cold-sync hiccup)
+// must not kill the operator — it stays up serving 503 and keeps retrying with
+// backoff until the wallet builds and the contract is found.
+async function warmupWithRetry(): Promise<void> {
+  const baseDelayMs = 5000;
+  const maxDelayMs = 60000;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await warmup();
+      return;
+    } catch (e) {
+      const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs);
+      log(
+        `warmup attempt ${attempt} failed: ${e instanceof Error ? e.message : String(e)}; ` +
+          `retrying in ${Math.round(delay / 1000)}s`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+// The wallet SDK (get-wallet-info.ts) installs its OWN unhandledRejection handler that
+// process.exit(1)s on any non-'close' rejection — which would kill the operator on a
+// transient background indexer/WS error. Replace it (this runs after that import loaded
+// it): log and stay up. warmup already retries, and the wallet keeps syncing in the
+// background, so a transient rejection shouldn't take the whole operator down.
+process.removeAllListeners("unhandledRejection");
+process.on("unhandledRejection", (reason) => {
+  log(`unhandled rejection (ignored, staying up): ${reason instanceof Error ? reason.message : String(reason)}`);
 });
+
+log(`listening on http://localhost:${PORT} (warming up…)`);
+void warmupWithRetry();

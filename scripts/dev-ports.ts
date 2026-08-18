@@ -2,6 +2,7 @@
 // (scripts/dev.ts) and the teardown (scripts/dev-stop.ts), so "stop" is always complete.
 export const DEV_PORTS = [
   9944, 8088, 6300, // Midnight node / indexer / proof server
+  8079, // Midnight indexer rate-limiting proxy (hosted nets)
   8899, 9900, // Solana validator
   5432, // PGLite
   9999, // sync node API

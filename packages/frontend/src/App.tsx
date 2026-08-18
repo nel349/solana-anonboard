@@ -86,6 +86,26 @@ export function App() {
     kind: "info",
   });
   const [busy, setBusy] = useState(false);
+  // Reflect membership as soon as we join, without waiting for the sync node's badge
+  // list to catch up to the chain (that lag is what showed "not a member" mid-join).
+  const [joined, setJoined] = useState(false);
+  const member = joined || isMember === true;
+  // ts of the post we're confirming, so we can clear "confirming…" once it lands.
+  const [pendingTs, setPendingTs] = useState<number | null>(null);
+  useEffect(() => {
+    if (pendingTs !== null && !optimistic.some((o) => o.ts === pendingTs)) {
+      setPendingTs(null);
+      setStatus((s) => (s.msg.startsWith("Posted") ? { msg: "", kind: "info" } : s));
+    }
+  }, [optimistic, pendingTs]);
+  // Safety net: if an optimistic "joined" never becomes a real on-chain member (a join
+  // that was submitted but dropped/reverted), don't trap the user in "member · syncing…"
+  // with the Join button hidden — clear it after a grace period so they can retry.
+  useEffect(() => {
+    if (!joined || isMember === true) return;
+    const t = setTimeout(() => setJoined(false), 120_000);
+    return () => clearTimeout(t);
+  }, [joined, isMember]);
 
   function connect() {
     const found = detectMidnightWallets();
@@ -140,35 +160,44 @@ export function App() {
       setStatus({ msg: `Proving membership — approve in ${walletName}…`, kind: "info" });
       await joinViaWallet(wallet, badge.publicKey.toBytes(), secret, CONTRACT_ADDRESS);
 
+      setJoined(true);
       setStatus({ msg: "Joined. Your badge becomes a member once the node syncs.", kind: "ok" });
     } catch (e) {
-      setStatus({ msg: `Join failed: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
+      const msg = e instanceof Error ? e.message : String(e);
+      // "already joined" means this badge is a member on-chain — treat it as success.
+      if (/already joined/i.test(msg)) {
+        setJoined(true);
+        setStatus({ msg: "You're already a member — waiting for the node to sync.", kind: "ok" });
+      } else {
+        setStatus({ msg: `Join failed: ${msg}`, kind: "err" });
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  async function post() {
+  function post() {
     const body = draft.trim();
     if (!body) return;
     const ts = addOptimistic(body);
+    setPendingTs(ts);
     setDraft("");
-    setBusy(true);
     setStatus({ msg: "Posting…", kind: "info" });
-    try {
-      const result = await submitPost(badge, body);
-      if (!result.ok) {
+    // Don't lock the composer on the receipt — the post shows optimistically and the
+    // board reflects the accept/reject verdict when it lands. Confirm in the background.
+    submitPost(badge, body)
+      .then((result) => {
+        if (result.ok) {
+          setStatus({ msg: "Posted — confirming on-chain…", kind: "ok" });
+        } else {
+          dropOptimistic(ts);
+          setStatus({ msg: `Rejected: ${result.message}`, kind: "err" });
+        }
+      })
+      .catch((e) => {
         dropOptimistic(ts);
-        setStatus({ msg: `Rejected: ${result.message}`, kind: "err" });
-      } else {
-        setStatus({ msg: "Posted — confirming on-chain…", kind: "ok" });
-      }
-    } catch (e) {
-      dropOptimistic(ts);
-      setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
-    } finally {
-      setBusy(false);
-    }
+        setStatus({ msg: `Error: ${e instanceof Error ? e.message : String(e)}`, kind: "err" });
+      });
   }
 
   return (
@@ -232,10 +261,14 @@ export function App() {
               <span className="label">Your anonymous badge</span>
               <code>{badgePk}</code>
             </div>
-            {isMember === null ? (
+            {member ? (
+              isMember === true ? (
+                <span className="pill ok"><span className="d" />member</span>
+              ) : (
+                <span className="pill ok"><span className="d" />member · syncing…</span>
+              )
+            ) : isMember === null ? (
               <span className="pill"><span className="d" />checking</span>
-            ) : isMember ? (
-              <span className="pill ok"><span className="d" />member</span>
             ) : (
               <span className="pill warn"><span className="d" />not a member</span>
             )}
@@ -267,7 +300,7 @@ export function App() {
             </p>
           )}
 
-          {!isMember && isMember !== null && (
+          {!member && isMember !== null && (
             <div className="join-row">
               {wallet ? (
                 <>

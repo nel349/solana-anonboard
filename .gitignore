@@ -45,3 +45,6 @@ tasks/
 .env.preprod
 .env.*.local
 !.env.example
+
+# dev-wrapper console captures
+.dev.*.console

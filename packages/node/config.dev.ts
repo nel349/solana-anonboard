@@ -11,17 +11,21 @@ import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import * as AnonboardContract from "@solana-anonboard/midnight-contract/contract";
+import { fetchOnChainBadges } from "./badge-seed.ts";
 import { readFileSync } from "node:fs";
 
 const midnight = readMidnightContract("contract-anonboard", {
   networkId: midnightNetworkConfig.id,
 });
 
-// Start the Midnight sync at the contract's deploy block, not block 1. Replaying the
-// whole chain from 1 hammers hosted indexers into rate-limiting (403); from the deploy
-// block it's a handful of requests. deploy.ts records the block into the contract JSON;
-// fall back to 1 (older deploys / local, where the chain is short anyway).
-let midnightStartBlock = 1;
+// The live sync only reads contract state on blocks where the contract is *called*, so
+// a near-head start would miss past joins. Instead we seed the existing badge set from
+// on-chain state (badge-seed.ts, consumed by main.dev.ts) and start the live sync near
+// head — existing members from the seed, new joins from the live sync. This avoids the
+// deploy-block replay whose catch-up grows unbounded as the chain advances. One fetch
+// drives both. If it fails, fall back to the deploy block so a replay still finds every
+// badge.
+let deployBlock = 1;
 try {
   const info = JSON.parse(
     readFileSync(
@@ -32,10 +36,26 @@ try {
       "utf8",
     ),
   );
-  if (typeof info.deployBlock === "number") midnightStartBlock = info.deployBlock;
+  if (typeof info.deployBlock === "number") deployBlock = info.deployBlock;
 } catch {
-  /* no deploy block recorded — replay from 1 */
+  /* no deploy block recorded */
 }
+
+export const seededBadges = await fetchOnChainBadges();
+let midnightStartBlock = deployBlock;
+// Start the live sync this many blocks behind head. The seed's contract state and the
+// head come from one query, but if the indexer's contract-action indexing lags the tip,
+// a join in that window would be in neither the seed nor a near-head start. A generous
+// buffer covers realistic indexer lag; the extra blocks are a few cheap batched requests.
+const HEAD_BUFFER = 200;
+if (seededBadges && seededBadges.height - HEAD_BUFFER > midnightStartBlock) {
+  midnightStartBlock = seededBadges.height - HEAD_BUFFER;
+}
+console.log(
+  seededBadges
+    ? `[sync] seeded ${seededBadges.badges.length} on-chain badge(s); Midnight starts near head (block ${midnightStartBlock})`
+    : `[sync] on-chain seed unavailable; Midnight starts at deploy block ${midnightStartBlock}`,
+);
 
 export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("anonboard"))
@@ -99,7 +119,12 @@ export const config = new ConfigBuilder()
           name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: midnightStartBlock,
-          pollingInterval: 1000,
+          // The state machine can't finalize a "now" Solana post until Midnight reaches
+          // "now", and on a hosted net it starts at the deploy block — potentially
+          // thousands behind. Fetch 50 blocks/request (vs the default 10) and poll often;
+          // the proxy still paces requests under the indexer's WAF limit.
+          pollingInterval: 250,
+          stepSize: 50,
           indexer: midnightNetworkConfig.indexer,
         }),
       ),

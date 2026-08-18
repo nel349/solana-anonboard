@@ -13,6 +13,7 @@ import {
 } from "./contract-anonboard/src/_index.ts";
 
 import { OWNER_SECRET_KEY, assertLocalOwnerKey } from "./owner-key.ts";
+import { recordDeployment } from "./deployments.ts";
 
 // Never deploy with the committed dev owner key on anything but the local chain.
 assertLocalOwnerKey(midnightNetworkConfig.id);
@@ -49,6 +50,14 @@ async function main(): Promise<void> {
   );
   const json = JSON.parse(readFileSync(jsonPath, "utf8"));
   writeFileSync(jsonPath, JSON.stringify({ ...json, deployBlock }, null, 2));
+
+  // Also record it in the consolidated deployments index (the reuse/redeploy prompt
+  // and an at-a-glance view of what's deployed where read from this).
+  recordDeployment(
+    midnightNetworkConfig.id,
+    { contractAddress, deployBlock },
+    new Date().toISOString(),
+  );
 
   console.log(`Deployment successful (deploy block ${deployBlock})`);
   process.exit(0);

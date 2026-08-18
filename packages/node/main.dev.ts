@@ -5,7 +5,8 @@ import {
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
 import { getConnection } from "@effectstream/db";
-import { config } from "./config.dev.ts";
+import { config, seededBadges } from "./config.dev.ts";
+import { insertSeedBadges } from "./badge-seed.ts";
 import { grammar } from "./grammar.ts";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
@@ -20,6 +21,11 @@ async function ensureAppSchema(): Promise<void> {
   try {
     for (const migration of migrationTable) {
       await pool.query(migration.sql);
+    }
+    // Seed existing members from on-chain state so a near-head start still knows them.
+    if (seededBadges) {
+      await insertSeedBadges(pool, seededBadges);
+      console.log(`[sync] seeded ${seededBadges.badges.length} on-chain badge(s)`);
     }
     console.log("[sync] app schema ensured (posts/badges) before block processing");
   } finally {
