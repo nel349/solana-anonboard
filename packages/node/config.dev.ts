@@ -11,10 +11,31 @@ import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import * as AnonboardContract from "@solana-anonboard/midnight-contract/contract";
+import { readFileSync } from "node:fs";
 
 const midnight = readMidnightContract("contract-anonboard", {
   networkId: midnightNetworkConfig.id,
 });
+
+// Start the Midnight sync at the contract's deploy block, not block 1. Replaying the
+// whole chain from 1 hammers hosted indexers into rate-limiting (403); from the deploy
+// block it's a handful of requests. deploy.ts records the block into the contract JSON;
+// fall back to 1 (older deploys / local, where the chain is short anyway).
+let midnightStartBlock = 1;
+try {
+  const info = JSON.parse(
+    readFileSync(
+      new URL(
+        `../contracts-midnight/contract-anonboard.${midnightNetworkConfig.id}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  if (typeof info.deployBlock === "number") midnightStartBlock = info.deployBlock;
+} catch {
+  /* no deploy block recorded — replay from 1 */
+}
 
 export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("anonboard"))
@@ -77,7 +98,7 @@ export const config = new ConfigBuilder()
         (_network, _deployments) => ({
           name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-          startBlockHeight: 1,
+          startBlockHeight: midnightStartBlock,
           pollingInterval: 1000,
           indexer: midnightNetworkConfig.indexer,
         }),
@@ -105,7 +126,7 @@ export const config = new ConfigBuilder()
         (_network, _deployments, _syncProtocol) => ({
           name: "MidnightAnonboard",
           type: PrimitiveTypeMidnightGeneric,
-          startBlockHeight: 1,
+          startBlockHeight: midnightStartBlock,
           contractAddress: midnight.contractAddress,
           stateMachinePrefix: "midnight-badges",
           contract: { ledger: AnonboardContract.ledger },
