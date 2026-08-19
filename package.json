@@ -26,7 +26,7 @@
     "test": "bun run packages/tests/run-tests.ts",
     "test:unit": "bun test packages/node packages/database scripts/dev-render.test.ts packages/contracts-midnight/deployments.test.ts",
     "test:contract": "bun test packages/contracts-midnight/contract-anonboard/test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun run scripts/typecheck.ts",
     "postinstall": "bun run scripts/dedupe-midnight-wasm.ts"
   },
   "dependencies": {

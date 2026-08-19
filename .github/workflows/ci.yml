@@ -24,9 +24,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Unit tests (parsers + DB idempotency)
         run: bun run test:unit
-      - name: Typecheck (advisory)
-        # The vendored EffectStream SDK ships raw .ts that doesn't type-check
-        # cleanly (see tsconfig.json); this surfaces app-code type issues without
-        # failing the build on SDK noise.
+      - name: Typecheck
+        # Fails on type errors in project code. Vendored EffectStream packages
+        # ship raw .ts (no .d.ts); scripts/typecheck.ts ignores their internal
+        # errors while still checking our usage against their real types.
         run: bun run typecheck
-        continue-on-error: true
