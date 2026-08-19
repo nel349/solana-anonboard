@@ -107,17 +107,16 @@ async function warmup(): Promise<void> {
     node: midnightNetworkConfig.node,
     proofServer: midnightNetworkConfig.proofServer,
   };
-  // Pre-sync dust via mn (fast indexer-direct reader) and restore the facade from
-  // its snapshot — skips the SDK dust wallet's slow cold scan, the warm-up long pole.
-  // Best-effort and hosted-only: any failure (or localnet, where the SDK cold sync is
-  // already fast) falls through to the SDK's own dust sync below, so warm-up never breaks.
+  // Pre-sync dust via mn (fast indexer-direct reader) and restore the facade from its
+  // snapshot — skips the SDK dust wallet's slow cold scan, the warm-up long pole. This
+  // applies on every network including the local one: the SDK's dust sync is the
+  // bottleneck there too (mn reads it in a few seconds). Best-effort: any failure falls
+  // through to the SDK's own dust sync below, so warm-up never breaks.
   let dustSnapshot: string | null = null;
-  if (midnightNetworkConfig.id !== "undeployed") {
-    try {
-      dustSnapshot = await primeDustSnapshotViaMn(midnightNetworkConfig.id, midnightNetworkConfig.walletSeed!);
-    } catch (e) {
-      log(`mn dust export unavailable (${e instanceof Error ? e.message : String(e)}); cold-syncing dust via SDK`);
-    }
+  try {
+    dustSnapshot = await primeDustSnapshotViaMn(midnightNetworkConfig.id, midnightNetworkConfig.walletSeed!);
+  } catch (e) {
+    log(`mn dust export unavailable (${e instanceof Error ? e.message : String(e)}); cold-syncing dust via SDK`);
   }
 
   log("building the operator wallet (owner + fee-payer)…");
