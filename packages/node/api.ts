@@ -34,7 +34,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   // posts tagged accepted by the arbiter — accepted:false rows prove the check runs.
   server.get("/api/badges", async (_request, reply) => {
     const result = await safeRead(
-      () => runPreparedQuery(getAllBadges.run(undefined, dbConn), "/api/badges"),
+      () => runPreparedQuery(getAllBadges.run({}, dbConn), "/api/badges"),
       "/api/badges",
     );
     reply.send({ badges: result });
@@ -42,7 +42,7 @@ export const apiRouter: StartConfigApiRouter = async function (
 
   server.get("/api/posts", async (_request, reply) => {
     const result = await safeRead(
-      () => runPreparedQuery(getAllPosts.run(undefined, dbConn), "/api/posts"),
+      () => runPreparedQuery(getAllPosts.run({}, dbConn), "/api/posts"),
       "/api/posts",
     );
     reply.send({
