@@ -29,9 +29,9 @@ const c = {
 };
 const isTTY = Boolean(process.stdout.isTTY);
 
-// `blocking: false` = the ready banner does NOT wait on this service; it warms up in the
-// background and is announced when it comes up. Used for the operator on hosted nets: it's
-// only needed to JOIN, and its cold dust sync (~80s) shouldn't delay "ready to post".
+// `blocking: false` = the ready banner does NOT wait on this service; it shows as "warming"
+// and flips to "Join enabled" in place when it comes up. Used for the operator on hosted
+// nets: it's only needed to JOIN, and its dust sync shouldn't delay "ready to post".
 type Svc = { key: string; label: string; port: number; link?: string; http?: string; note?: string; primary?: boolean; blocking?: boolean };
 
 // On a hosted net (preview/preprod) the Midnight node + indexer are remote, so only
@@ -229,7 +229,8 @@ function rows(): Row[] {
   return out;
 }
 
-function render() {
+// The in-progress checklist (pre-ready). Returns the lines; render() owns the draw.
+function checklistLines(): string[] {
   const elapsed = Math.floor((Date.now() - started) / 1000);
   const rs = rows();
   const active = rs.findIndex((r) => r.status !== "up"); // the step we're waiting on
@@ -251,7 +252,33 @@ function render() {
     lines.push("");
     lines.push(`  ${c.dim}↳ ${lastActivity() || "…"}${c.reset}`);
   }
+  return lines;
+}
 
+// The ready banner (post-ready). A single re-renderable block: the Operator line
+// flips from "warming" to "Join enabled" in place when the deferred operator comes
+// up, so the status stays consistent (no frozen row + contradicting line below).
+function readyLines(): string[] {
+  const warming = SERVICES.some((sv) => sv.blocking === false && !states[sv.key]);
+  const line = (label: string, url: string, tail = "", tailColor = c.dim) =>
+    `  ${c.dim}${pad(label, 10)}${c.reset}${c.cyan}${url}${c.reset}${tail ? `  ${tailColor}${tail}${c.reset}` : ""}`;
+  return [
+    `${c.green}${c.bold}✓ anonboard is ready${warming ? " to post" : ""}${c.reset}`,
+    "",
+    line("Open", "http://localhost:5173", "← the app"),
+    line("Sync API", "http://localhost:9999/api/posts"),
+    warming
+      ? line("Operator", "http://localhost:3335", "warming — Join enabled shortly", c.yellow)
+      : line("Operator", "http://localhost:3335", "✓ Join enabled", c.green),
+    line("Batcher", "http://localhost:3334"),
+    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}`,
+    "",
+    `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}`,
+  ];
+}
+
+function render() {
+  const lines = ready ? readyLines() : checklistLines();
   const block = lines.map((l) => clampWidth(l, process.stdout.columns ?? 0, c.reset)).join("\n") + "\n";
   if (isTTY) {
     if (lastLines) process.stdout.write(`\x1b[${lastLines}A\x1b[0J`);
@@ -262,25 +289,11 @@ function render() {
   }
 }
 
-function banner() {
-  const warming = SERVICES.some((sv) => sv.blocking === false && !states[sv.key]);
-  const line = (label: string, url: string, tail = "") =>
-    `  ${c.dim}${pad(label, 10)}${c.reset}${c.cyan}${url}${c.reset}${tail ? `  ${c.dim}${tail}${c.reset}` : ""}`;
-  process.stdout.write(
-    `\n${c.green}${c.bold}✓ anonboard is ready${warming ? " to post" : ""}${c.reset}\n\n` +
-    line("Open", "http://localhost:5173", "← the app") + "\n" +
-    line("Sync API", "http://localhost:9999/api/posts") + "\n" +
-    line("Operator", "http://localhost:3335", warming ? "warming — Join enabled shortly (~1 min)" : "") + "\n" +
-    line("Batcher", "http://localhost:3334") + "\n" +
-    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}\n\n` +
-    `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}\n\n`,
-  );
-}
-
 // Port-poll updates the checklist state; the animation ticks separately so the spinner
 // and the live activity line keep moving between polls.
-// Deferred (non-blocking) services already announced after the banner fired.
-const announced = new Set<string>();
+// Signature of the deferred services' readiness at the last banner render — so we only
+// redraw the banner when the operator actually flips (not every poll).
+let lastDeferredSig = "";
 async function poll() {
   const s: Record<string, boolean> = {};
   await Promise.all(
@@ -299,29 +312,26 @@ async function poll() {
   states = s;
 
   // Fire the banner once the BLOCKING services are up (posting works). Non-blocking
-  // services (the operator, needed only to join) warm up in the background and are
-  // announced as they come up, so their ~80s dust sync doesn't delay "ready to post".
+  // services (the operator, needed only to join) warm up in the background — the banner
+  // shows them "warming" and flips them to "Join enabled" in place, so their dust sync
+  // doesn't delay "ready to post" yet the status never goes stale.
   const coreReady = SERVICES.every((sv) => sv.blocking === false || states[sv.key]);
   const deferred = SERVICES.filter((sv) => sv.blocking === false);
+  const deferredSig = deferred.map((sv) => (states[sv.key] ? "1" : "0")).join("");
 
   if (coreReady && !ready) {
     ready = true;
-    render(); // final checklist; core ✓, any deferred service still warming
-    banner();
-    // don't return — keep polling to announce the deferred services when they come up
+    lastDeferredSig = deferredSig;
+    render(); // checklist collapses into the ready banner (operator may still be warming)
+  } else if (ready && deferredSig !== lastDeferredSig) {
+    lastDeferredSig = deferredSig;
+    render(); // a deferred service flipped — redraw the banner in place (warming → enabled)
+  } else if (!isTTY && !ready) {
+    render(); // non-TTY: print progress each poll (no animation)
   }
-  if (ready) {
-    for (const sv of deferred) {
-      if (states[sv.key] && !announced.has(sv.key)) {
-        announced.add(sv.key);
-        const tail = sv.key === "operator" ? " — Join is now enabled" : "";
-        process.stdout.write(`  ${MARK.up} ${c.bold}${sv.label} ready${c.reset}${c.dim}${tail}.${c.reset}\n`);
-      }
-    }
-    if (deferred.every((sv) => states[sv.key])) return; // everything up now — stop polling
-  }
-  if (!isTTY && !ready) render(); // non-TTY: print progress each poll (no animation)
-  if (!stopping && (!ready || deferred.some((sv) => !states[sv.key]))) setTimeout(poll, 1000);
+
+  if (ready && deferred.every((sv) => states[sv.key])) return; // everything up now — stop polling
+  if (!stopping) setTimeout(poll, 1000);
 }
 
 function tick() {
