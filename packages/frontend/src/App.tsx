@@ -163,13 +163,26 @@ export function App() {
       setJoined(true);
       setStatus({ msg: "Joined. Your badge becomes a member once the node syncs.", kind: "ok" });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      // dApp-connector / Effect failures often wrap the real reason (e.g. a node
+      // SubmissionError) behind an empty top-level `.message`. Log the raw error and
+      // walk the cause chain so the innermost tag/message surfaces in the UI.
+      console.error("[join] failed:", e);
+      let node: unknown = e;
+      let tag: string | undefined;
+      let reason = "";
+      for (let d = 0; node && d < 10; d++) {
+        const o = node as Record<string, unknown>;
+        if (typeof o._tag === "string") tag = o._tag;
+        if (typeof o.message === "string" && o.message) reason = o.message;
+        node = o.cause ?? o.failure ?? o.error;
+      }
+      const msg = reason || tag || (e instanceof Error && e.message) || String(e);
       // "already joined" means this badge is a member on-chain — treat it as success.
       if (/already joined/i.test(msg)) {
         setJoined(true);
         setStatus({ msg: "You're already a member — waiting for the node to sync.", kind: "ok" });
       } else {
-        setStatus({ msg: `Join failed: ${msg}`, kind: "err" });
+        setStatus({ msg: `Join failed: ${msg || "unknown error — see console"}`, kind: "err" });
       }
     } finally {
       setBusy(false);
