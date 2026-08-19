@@ -1,9 +1,26 @@
 solana-anonboard
-Copyright 2026 solana-anonboard contributors
+Copyright 2026 Norman Lopez
 
-This project is licensed under the Apache License, Version 2.0; see LICENSE.
+This product includes software adapted from, depending on, or built with the
+following open-source projects. This NOTICE is provided for attribution and
+does not modify the terms of the LICENSE (Apache-2.0).
 
-Portions of this project — the Solana transaction round-trip, the fee-paying
-batcher, and the frontend scaffolding — are adapted from EffectStream's
-"solana-starter" template (https://effectstream.dev), used under the
-Apache License, Version 2.0.
+- EffectStream — https://github.com/effectstream/effectstream
+  Licensed under MIT OR Apache-2.0.
+  The sync-node framework this project is built on; the Solana round-trip,
+  batcher, and frontend scaffolding are adapted from its `solana-starter`
+  template.
+
+- Midnight Rust SDK (midnight-rs) — https://github.com/Moonsong-Labs/midnight-rs
+  Copyright Moonsong Labs, licensed under MIT.
+  The Rust SDK for the Midnight blockchain; the Midnight ledger and proving
+  used here (via @midnight-ntwrk/ledger-v8) are built from it.
+
+- Midnight JS SDK & Compact — https://github.com/midnight-ntwrk and
+  https://github.com/LFDT-Minokawa/compact (Apache-2.0).
+  Wallet, indexer, and Compact zero-knowledge contract tooling for Midnight.
+
+- Solana web3.js & program tooling — https://github.com/solana-labs (Apache-2.0).
+  The public, gasless Solana posting/settlement layer.
+
+Trademarks and product names are the property of their respective owners.
