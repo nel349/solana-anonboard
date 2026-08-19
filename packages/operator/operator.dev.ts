@@ -12,6 +12,7 @@ import { readMidnightContract } from "@effectstream/midnight-contracts/read-cont
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import {
   Anonboard,
@@ -25,6 +26,54 @@ assertLocalOwnerKey(midnightNetworkConfig.id);
 
 const PORT = Number(process.env.OPERATOR_PORT ?? "3335");
 const log = (m: string) => console.log(`[operator] ${m}`);
+
+// The linked midnight-wallet-cli binary (bun link). Used to pre-sync dust fast.
+const MN_BIN = path.resolve(import.meta.dirname!, "../../node_modules/.bin/mn");
+
+// Run `mn` and capture stdout, with a hard timeout. Rejects on non-zero exit,
+// spawn error (e.g. mn not linked), or timeout — all handled by the caller as
+// "fall back to the SDK cold sync". `extraEnv` passes secrets (the seed) via the
+// child's environment instead of argv, so `ps` can't expose them.
+function runMn(args: string[], timeoutMs: number, extraEnv?: Record<string, string>): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(MN_BIN, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`mn timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+    child.stdout.on("data", (d) => (stdout += d));
+    child.stderr.on("data", (d) => (stderr += d));
+    child.on("error", (e) => { clearTimeout(timer); reject(e); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`mn exited ${code}: ${stderr.trim().slice(-200)}`));
+    });
+  });
+}
+
+// Pre-sync dust via mn's fast indexer-direct reader and return a facade-restorable
+// dust snapshot (dustSerializedState). ~15s cold / instant warm on a hosted net,
+// vs the SDK dust wallet's ~80s cold scan. Best-effort — throws on any failure.
+async function primeDustSnapshotViaMn(network: string, seed: string): Promise<string> {
+  const t0 = Date.now();
+  log("priming dust via mn (fast indexer-direct sync)…");
+  // Seed goes via MN_SEED in the child env (not argv) so it never appears in `ps`.
+  const raw = await runMn(["dust", "export", "--network", network, "--json"], 150_000, { MN_SEED: seed });
+  // mn writes JSON to stdout; be defensive about any stray prefix/suffix.
+  const i = raw.indexOf("{");
+  const j = raw.lastIndexOf("}");
+  if (i < 0 || j < 0) throw new Error("mn dust export produced no JSON");
+  const parsed = JSON.parse(raw.slice(i, j + 1)) as { snapshot?: string; offset?: number; dustBalance?: string };
+  if (!parsed.snapshot) throw new Error("mn dust export returned no snapshot");
+  log(`dust primed via mn: offset=${parsed.offset} balance=${parsed.dustBalance} (${Math.round((Date.now() - t0) / 1000)}s)`);
+  return parsed.snapshot;
+}
 
 // Serialize every wallet operation. add_to_roster and balance+submit both spend
 // the wallet's dust/coins; running them concurrently races the coin selection.
@@ -58,11 +107,26 @@ async function warmup(): Promise<void> {
     node: midnightNetworkConfig.node,
     proofServer: midnightNetworkConfig.proofServer,
   };
+  // Pre-sync dust via mn (fast indexer-direct reader) and restore the facade from
+  // its snapshot — skips the SDK dust wallet's slow cold scan, the warm-up long pole.
+  // Best-effort and hosted-only: any failure (or localnet, where the SDK cold sync is
+  // already fast) falls through to the SDK's own dust sync below, so warm-up never breaks.
+  let dustSnapshot: string | null = null;
+  if (midnightNetworkConfig.id !== "undeployed") {
+    try {
+      dustSnapshot = await primeDustSnapshotViaMn(midnightNetworkConfig.id, midnightNetworkConfig.walletSeed!);
+    } catch (e) {
+      log(`mn dust export unavailable (${e instanceof Error ? e.message : String(e)}); cold-syncing dust via SDK`);
+    }
+  }
+
   log("building the operator wallet (owner + fee-payer)…");
   const wallet = await buildWalletFacade(
     urls as never,
     midnightNetworkConfig.walletSeed!,
     midnightNetworkConfig.id,
+    "all" as never,
+    dustSnapshot,
   );
   try {
     // The operator only spends dust (roster fees), so wait for dust + unshielded and skip
