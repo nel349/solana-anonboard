@@ -48,3 +48,6 @@ tasks/
 
 # dev-wrapper console captures
 .dev.*.console
+.dev.*.out
+*-repro.out
+/packages/contracts-midnight/deployments.json

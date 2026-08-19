@@ -1,7 +1,7 @@
-# Minimal CI: fast, deterministic checks that need neither the Midnight/Solana
-# toolchains nor a localnet — the pure unit suites (parsers, DB idempotency) plus
-# an advisory typecheck. The contract suite (test:contract) and the E2E (test)
-# need the compact compiler / a full localnet and run locally, not here.
+# CI: fast, deterministic checks — the unit suites (parsers, DB idempotency) plus
+# a typecheck. One unit test (badge-seed) parses contract state through the
+# compiled Compact contract, so we install the compact toolchain and compile the
+# contract here (~4s). The full E2E (test) needs a localnet and runs locally.
 name: ci
 
 on:
@@ -16,17 +16,23 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      # TODO before going public: pin these actions to commit SHAs (supply-chain).
+      # TODO before going public: pin the remaining actions to commit SHAs (supply-chain).
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
+      - name: Setup Compact compiler
+        uses: midnightntwrk/setup-compact-action@836895c8fffbbea6bd986af2b17e8941ff29d1f8
+        with:
+          compact-version: "0.31.0"
       - run: bun install --frozen-lockfile
+      - name: Compile the Compact contract (generates managed/)
+        working-directory: packages/contracts-midnight/contract-anonboard
+        run: bun run compact
       - name: Unit tests (parsers + DB idempotency)
         run: bun run test:unit
-      - name: Typecheck (advisory)
-        # The vendored EffectStream SDK ships raw .ts that doesn't type-check
-        # cleanly (see tsconfig.json); this surfaces app-code type issues without
-        # failing the build on SDK noise.
+      - name: Typecheck
+        # Fails on type errors in project code. Vendored EffectStream packages
+        # ship raw .ts (no .d.ts); scripts/typecheck.ts ignores their internal
+        # errors while still checking our usage against their real types.
         run: bun run typecheck
-        continue-on-error: true

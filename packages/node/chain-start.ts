@@ -38,7 +38,7 @@ async function main() {
     bpfPrograms: [{ address: POST_PROGRAM_ID, soPath: PROGRAM_SO }],
   });
 
-  child.on("close", (code) => {
+  child.on("close", (code: number | null) => {
     if (code !== 0) process.exit(code ?? 1);
   });
 }

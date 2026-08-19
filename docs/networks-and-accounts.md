@@ -60,4 +60,4 @@ Every Midnight endpoint lives in one place: [`packages/contracts-midnight/networ
 
 ## Version compatibility
 
-The versions this repo targets match the [Midnight support matrix](https://docs.midnight.network/relnotes/support-matrix) for preview/preprod (Midnight.js 4.1.1, compact-runtime 0.16.0, compact-js 2.5.1, proof server 8.1.0, dapp-connector 4.0.1), so a hosted run needs no dependency changes — see "Verified against" in the [README](../README.md).
+The versions this repo targets match the [Midnight support matrix](https://docs.midnight.network/relnotes/support-matrix) for preview/preprod, so a hosted run needs no dependency changes. The exact pinned versions live in one place — the "Verified against" table in the [README](../README.md).

@@ -57,8 +57,8 @@ export class InMemoryPrivateStateProvider implements PrivateStateProvider {
   async setSigningKey(address: string, key: unknown): Promise<void> {
     this.signingKeys.set(address, key);
   }
-  async getSigningKey(address: string): Promise<unknown> {
-    return this.signingKeys.has(address) ? this.signingKeys.get(address) : null;
+  async getSigningKey(address: string): Promise<string | null> {
+    return this.signingKeys.has(address) ? (this.signingKeys.get(address) as string) : null;
   }
   async removeSigningKey(address: string): Promise<void> {
     this.signingKeys.delete(address);

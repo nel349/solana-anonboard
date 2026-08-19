@@ -139,7 +139,7 @@ export async function buildAnonboardContext(): Promise<AnonboardContext> {
   return {
     contractAddress: info.contractAddress,
     wallet,
-    compiled,
+    compiled: compiled as never,
     urls,
     admin: { providers: adminProviders, joined: adminJoined as any },
   };

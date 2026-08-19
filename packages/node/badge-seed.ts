@@ -66,7 +66,7 @@ export async function fetchOnChainBadges(): Promise<OnChainBadges | null> {
 /** Extract the badge pubkeys (base58) from a serialized contract-state hex string. */
 export function parseBadgesFromState(stateHex: string): string[] {
   const ledger = Anonboard.ledger(
-    (ContractState.deserialize(fromHex(stateHex)) as { data: unknown }).data,
+    (ContractState.deserialize(fromHex(stateHex)) as { data: unknown }).data as Parameters<typeof Anonboard.ledger>[0],
   );
   const badges: string[] = [];
   for (const [key] of ledger.badges) badges.push(bs58.encode(key as Uint8Array));
