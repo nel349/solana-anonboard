@@ -1,4 +1,3 @@
-// The post composer: a bounded textarea with a live character count and a Post button.
 import { MAX_BODY } from "../config.ts";
 
 export function Composer({

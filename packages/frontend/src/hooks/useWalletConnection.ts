@@ -1,5 +1,4 @@
-// Midnight wallet connection: detect installed wallets, connect one, and derive the
-// per-wallet membership secret. Owns only connection state — join/post live elsewhere.
+// Detect and connect a Midnight wallet; derive the per-wallet membership secret.
 import { useState } from "react";
 import {
   detectMidnightWallets,

@@ -1,4 +1,4 @@
-// Full-bleed cinematic hero with an overlay bar (tagline + theme toggle).
+// Hero with an overlay bar (tagline + theme toggle).
 import { ClawHero } from "./ClawHero.tsx";
 import type { Theme } from "../hooks/useTheme.ts";
 

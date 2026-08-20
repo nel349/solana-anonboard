@@ -1,4 +1,4 @@
-// Floating Solana / sponsor panel — the chain plumbing, tucked bottom-right.
+// Floating Solana / sponsor panel (gasless-posting details).
 import { shortAddr } from "../session.ts";
 import { COST_PER_POST_SOL, SPONSOR_ADDR } from "../config.ts";
 

@@ -1,6 +1,5 @@
-// The compose/post flow. Posting is fire-and-forget: the post shows optimistically and
-// the board reflects the accept/reject verdict when it lands, so the composer never
-// locks on the receipt. Owns the draft and the pending-post bookkeeping.
+// Fire-and-forget posting: the post shows optimistically and the board reflects the
+// accept/reject verdict when it lands, so the composer never locks on the receipt.
 import { useEffect, useState } from "react";
 import type { Keypair } from "@solana/web3.js";
 import { submitPost } from "../solana/post.ts";

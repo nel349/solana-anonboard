@@ -1,5 +1,4 @@
-// Browser-local identity: the anonymous badge (a Solana keypair) and the per-wallet
-// membership secret. Persisted in localStorage — demo only; encrypt for production.
+// localStorage identity — demo only; encrypt for production.
 import { Keypair } from "@solana/web3.js";
 import { BADGE_STORAGE_KEY } from "./config.ts";
 

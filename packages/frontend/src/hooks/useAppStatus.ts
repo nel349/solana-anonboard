@@ -1,5 +1,4 @@
-// The single status line shared by the connect / join / post flows. One message at a
-// time, with a kind that drives its styling and ARIA role.
+// One status line, shared across the connect/join/post flows.
 import { useState, type Dispatch, type SetStateAction } from "react";
 
 export type StatusKind = "info" | "ok" | "err";

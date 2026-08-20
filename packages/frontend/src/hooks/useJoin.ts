@@ -1,6 +1,5 @@
-// The join flow: the operator registers the member key on the roster, then the browser
-// proves the join and the connected wallet pays + submits. Owns the optimistic "joined"
-// flag (so membership shows immediately, before the sync node catches up).
+// The join flow: the operator registers the member key, the browser proves the join,
+// and the connected wallet pays + submits.
 import { useEffect, useState } from "react";
 import type { Keypair } from "@solana/web3.js";
 import { joinViaWallet, deriveMemberPublicKey, toHexString } from "../midnight/join.ts";

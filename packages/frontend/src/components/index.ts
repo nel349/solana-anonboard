@@ -1,4 +1,3 @@
-// Barrel: the app's presentational components. Consumers import from "./components".
 export * from "./ClawHero.tsx";
 export * from "./Hero.tsx";
 export * from "./SolanaPanel.tsx";

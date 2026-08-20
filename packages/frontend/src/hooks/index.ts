@@ -1,4 +1,3 @@
-// Barrel: the app's hooks. Consumers import from "./hooks", not each file.
 export * from "./useFeed.ts";
 export * from "./useSponsorBalance.ts";
 export * from "./useTheme.ts";

@@ -1,4 +1,3 @@
-// Light/dark theme, persisted and reflected onto <html data-theme> for the CSS.
 import { useEffect, useState } from "react";
 
 export type Theme = "light" | "dark";

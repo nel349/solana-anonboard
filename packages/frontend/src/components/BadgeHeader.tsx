@@ -1,4 +1,3 @@
-// The console's header row: the user's anonymous badge and their membership status.
 import { MembershipPill } from "./MembershipPill.tsx";
 
 export function BadgeHeader({
