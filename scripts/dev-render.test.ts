@@ -26,6 +26,30 @@ describe("deployStep", () => {
     expect(deployStep("[solana-validator] booting")).toBe("");
     expect(deployStep("")).toBe("");
   });
+
+  test("skips unrecognized SDK object-dump lines instead of leaking a stray '}'", () => {
+    const log = [
+      "[midnight-contract] Deploying contract...",
+      "[midnight-contract] {",
+      "[midnight-contract]   prove: [Function: prove],",
+      "[midnight-contract] }",
+    ].join("\n");
+    expect(deployStep(log)).toBe("submitting deploy tx"); // the last recognized phase, never "}"
+  });
+
+  test("recognizes the mn dust-prime phases", () => {
+    expect(deployStep("[midnight-contract] [deploy] priming dust via mn (fast indexer-direct sync)…")).toBe(
+      "priming dust (mn)",
+    );
+    expect(deployStep("[midnight-contract] [deploy] dust primed via mn: offset=127407 balance=7334 (5s)")).toBe(
+      "dust primed (mn)",
+    );
+    expect(deployStep("[midnight-contract] [deploy] deploy wallet ready (dust primed via mn)")).toBe("wallet ready");
+  });
+
+  test("only noise (no recognized phase) → 'working…', never a leaked line", () => {
+    expect(deployStep("[midnight-contract] }")).toBe("working…");
+  });
 });
 
 describe("clampWidth", () => {

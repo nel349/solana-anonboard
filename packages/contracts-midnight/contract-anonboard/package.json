@@ -10,6 +10,7 @@
   "scripts": {
     "compact": "compact compile +0.31.0 src/anonboard.compact src/managed",
     "contract:compile": "bun run compact",
+    "build:witnesses": "bun build src/witnesses.ts --outfile src/witnesses.js --target node --format esm",
     "test": "bun test test/"
   },
   "type": "module",

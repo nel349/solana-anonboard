@@ -22,7 +22,12 @@ import {
   buildWalletAndWaitForFunds,
   configureMidnightNodeProviders,
 } from "@effectstream/midnight-contracts";
+import {
+  buildWalletFacade,
+  syncAndWaitForFunds,
+} from "@effectstream/midnight-contracts/wallet-info";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import { primeDustSnapshotViaMn } from "../packages/contracts-midnight/mn-dust-prime.ts";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import {
   createUnprovenCallTx,
@@ -59,13 +64,34 @@ async function main() {
     proofServer: midnightNetworkConfig.proofServer,
   };
 
-  // Party B's paying keys — unrelated to the roster witness.
+  // Party B's paying keys — unrelated to the roster witness. Prime dust via mn's
+  // fast indexer-direct reader (the SDK cold-sync never completes on preprod);
+  // fall back to the SDK cold-sync if mn is unavailable. Only dust is spent, so
+  // skip the shielded wait.
   log("setup", "building funded wallet (this wallet only ever pays fees)…");
-  const w = await buildWalletAndWaitForFunds(
-    urls as never,
-    midnightNetworkConfig.walletSeed!,
-    midnightNetworkConfig.id,
-  );
+  let w: Awaited<ReturnType<typeof buildWalletFacade>>;
+  try {
+    const snapshot = await primeDustSnapshotViaMn(
+      midnightNetworkConfig.id,
+      midnightNetworkConfig.walletSeed!,
+      { log: (m) => log("mn", m), timeoutMs: 300_000 },
+    );
+    w = await buildWalletFacade(
+      { id: midnightNetworkConfig.id, ...urls } as never,
+      midnightNetworkConfig.walletSeed!,
+      midnightNetworkConfig.id as never,
+      "all" as never,
+      snapshot,
+    );
+    await syncAndWaitForFunds(w.wallet as never, { skipShielded: true });
+  } catch (e) {
+    log("mn", `dust prime unavailable (${e instanceof Error ? e.message : String(e)}); SDK cold-sync`);
+    w = await buildWalletAndWaitForFunds(
+      urls as never,
+      midnightNetworkConfig.walletSeed!,
+      midnightNetworkConfig.id,
+    );
+  }
   const zkConfigPath = path.resolve(
     import.meta.dirname!,
     "..",

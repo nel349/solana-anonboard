@@ -3,22 +3,39 @@
 
 export const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
-// The deploy process's current step, mapped from its latest log line to a short label,
-// so the checklist shows "syncing wallet …" instead of a flat "working…".
+// Map a single deploy log line to a short phase label, or null if it isn't a
+// recognized phase. Separate from deployStep so it can skip unrecognized lines.
+function classifyDeployLine(line: string): string | null {
+  if (/Deployment successful/.test(line)) return "deployed";
+  const sync = line.match(/Wallet sync progress \((\d+)s\):.*dust=(\w+)/);
+  if (sync) return `syncing wallet — dust ${sync[2] === "true" ? "✓" : "syncing"} (${sync[1]}s)`;
+  // Order matters: the "wallet ready" line also contains "dust primed via mn".
+  if (/deploy wallet ready/.test(line)) return "wallet ready";
+  if (/dust primed via mn/.test(line)) return "dust primed (mn)";
+  if (/priming dust via mn/.test(line)) return "priming dust (mn)";
+  if (/Waiting to receive tokens/.test(line)) return "waiting for dust";
+  if (/Building wallet/i.test(line)) return "building wallet";
+  if (/Deploying contract|Balanc|prov|submit/i.test(line)) return "submitting deploy tx";
+  return null;
+}
+
+// The deploy process's current step, as a short label for the checklist. The
+// deploy subprocess interleaves SDK object dumps (bare `{` / `}` lines, key:value
+// fragments) into its output, so we scan newest→oldest for the last RECOGNIZED
+// phase and never surface an unrecognized line — otherwise a stray `}` leaks into
+// the checklist in place of the phase.
 export function deployStep(logTail: string): string {
   const deployLines = stripAnsi(logTail)
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l.startsWith("[midnight-contract]"));
-  const last = (deployLines[deployLines.length - 1] ?? "").replace(/^\[midnight-contract\]\s*/, "");
-  if (!last) return "";
-  if (/Deployment successful/.test(last)) return "deployed";
-  const sync = last.match(/Wallet sync progress \((\d+)s\):.*dust=(\w+)/);
-  if (sync) return `syncing wallet — dust ${sync[2] === "true" ? "✓" : "syncing"} (${sync[1]}s)`;
-  if (/Waiting to receive tokens/.test(last)) return "waiting for dust";
-  if (/Building wallet/i.test(last)) return "building wallet";
-  if (/Balanc|prov|submit/i.test(last)) return "submitting deploy tx";
-  return last.length > 40 ? last.slice(0, 40) + "…" : last;
+    .filter((l) => l.startsWith("[midnight-contract]"))
+    .map((l) => l.replace(/^\[midnight-contract\]\s*/, ""));
+  if (deployLines.length === 0) return "";
+  for (let i = deployLines.length - 1; i >= 0; i--) {
+    const phase = classifyDeployLine(deployLines[i]);
+    if (phase) return phase;
+  }
+  return "working…";
 }
 
 // Clamp a line to the terminal width (ANSI-aware) so it never wraps — a wrapped line

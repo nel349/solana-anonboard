@@ -102,6 +102,20 @@ export default {
     },
     ...midnightProcesses,
 
+    // The real operator daemon — the roster-write path the browser join uses.
+    // Covered by stm/operator-register.test.ts; started here so the E2E exercises
+    // operator.dev.ts itself (not a harness re-implementation of add_to_roster).
+    {
+      name: "operator",
+      description: "Midnight operator (roster registrar + join fee-payer)",
+      cwd: root,
+      args: ["run", "packages/operator/operator.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      stopProcessAtPort: [3335],
+      dependsOn: [...midnightDeps],
+    },
+
     {
       name: "airdrop-batcher",
       description: "Airdrop SOL to batcher wallet",

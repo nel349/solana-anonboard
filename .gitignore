@@ -31,6 +31,8 @@ poster.json
 contract-anonboard.*.json
 contract.json
 badge.json
+# Generated from witnesses.ts by `build:witnesses` (only needed for native `mn contract deploy`).
+**/contract-anonboard/src/witnesses.js
 .DS_Store
 
 # Internal working docs + task tracker — kept in this (private) repo, but MUST NOT

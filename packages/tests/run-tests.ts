@@ -163,6 +163,10 @@ async function test() {
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest(acceptedAuthor, joinedBadge);
 
+    console.log("\n--- Phase D: Operator daemon (roster-write / dust) ---\n");
+    const { operatorRegisterTest } = await import("./stm/operator-register.test.ts");
+    await operatorRegisterTest();
+
     printSummary();
   } catch (e) {
     // Track boot failures explicitly so infra that never came up can't exit 0.
