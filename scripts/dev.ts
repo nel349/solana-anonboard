@@ -112,6 +112,44 @@ async function maybePromptRedeploy(): Promise<void> {
   }
 }
 await maybePromptRedeploy();
+
+// Solana network: the local validator is ephemeral (posts reset every run); devnet is
+// hosted, so posts persist across restarts. SOLANA_NETWORK env pre-empts the prompt;
+// non-interactive shells default to local. Resolves the RPC and exports it to the
+// orchestrator (SOLANA_RPC_URL for node services, VITE_SOLANA_RPC_URL for the frontend).
+const DEVNET_RPC = "https://api.devnet.solana.com";
+const LOCAL_RPC = "http://localhost:8899";
+async function maybePromptSolanaNetwork(): Promise<void> {
+  let choice = (process.env.SOLANA_NETWORK ?? "").toLowerCase();
+  if (choice !== "local" && choice !== "devnet" && isTTY) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = (
+      await Promise.race([
+        rl.question(
+          `\n${c.bold}Solana network?${c.reset} ` +
+            `${c.dim}[L]ocal validator (posts reset each run) · [d]evnet (hosted, posts persist) · auto-local in 20s${c.reset} `,
+        ),
+        new Promise<string>((res) => setTimeout(() => res(""), 20_000)),
+      ])
+    )
+      .trim()
+      .toLowerCase();
+    rl.close();
+    choice = answer === "d" || answer === "devnet" ? "devnet" : "local";
+  }
+  choice = choice === "devnet" ? "devnet" : "local";
+  process.env.SOLANA_NETWORK = choice;
+  const rpc = process.env.SOLANA_RPC_URL || (choice === "devnet" ? DEVNET_RPC : LOCAL_RPC);
+  process.env.SOLANA_RPC_URL = rpc;
+  process.env.VITE_SOLANA_RPC_URL = rpc;
+  process.stdout.write(
+    choice === "devnet"
+      ? `${c.yellow}→ Solana on devnet (${rpc}) — posts persist across restarts.${c.reset}\n`
+      : `${c.dim}→ Solana on the local validator (posts reset each run).${c.reset}\n`,
+  );
+}
+await maybePromptSolanaNetwork();
+
 // Reusing a recorded contract means the deploy step is a no-op, so its checklist row
 // shouldn't wait on the sync node — mark it done immediately.
 const reusingContract = Boolean(getDeployment(NET)) && !process.env.ANONBOARD_REDEPLOY;

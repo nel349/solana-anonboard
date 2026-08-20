@@ -9,7 +9,10 @@ import {
   DEV_RPC_URL,
 } from "@solana-anonboard/contracts-solana";
 
-export const RPC = DEV_RPC_URL;
+// Solana RPC. Defaults to the local validator; set VITE_SOLANA_RPC_URL (via
+// SOLANA_NETWORK=devnet on `bun run dev`) to point at a hosted cluster.
+export const RPC =
+  (import.meta.env.VITE_SOLANA_RPC_URL as string | undefined) || DEV_RPC_URL;
 export const BATCHER_URL = DEV_BATCHER_URL;
 export const OPERATOR_URL = DEV_OPERATOR_URL;
 export const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
