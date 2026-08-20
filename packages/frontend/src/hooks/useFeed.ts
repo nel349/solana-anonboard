@@ -1,8 +1,7 @@
-// Polling hooks that keep the board and sponsor balance live. Extracted from App
-// so the component is composition, not data-plumbing.
+// Feed + membership, polled every 500ms. Optimistic rows live here too: add one on
+// post, and each is dropped once its real row (same body + badge) arrives.
 import { useCallback, useEffect, useState } from "react";
-import { Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { BADGES_URL, POSTS_URL, RPC, SPONSOR } from "./config.ts";
+import { BADGES_URL, POSTS_URL } from "../config.ts";
 
 export type Post = {
   id: number;
@@ -14,8 +13,6 @@ export type Post = {
 };
 export type Optimistic = { body: string; ts: number };
 
-// Feed + membership, polled every 500ms. Optimistic rows live here too: add one on
-// post, and each is dropped once its real row (same body+badge) arrives.
 export function useFeed(badgePk: string) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isMember, setIsMember] = useState<boolean | null>(null);
@@ -68,28 +65,4 @@ export function useFeed(badgePk: string) {
   }, [badgePk]);
 
   return { posts, isMember, optimistic, addOptimistic, dropOptimistic };
-}
-
-// Sponsor SOL balance, polled every 5s.
-export function useSponsorBalance(): number | null {
-  const [sponsorSol, setSponsorSol] = useState<number | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const conn = new Connection(RPC, "confirmed");
-    const tick = async () => {
-      try {
-        const lamports = await conn.getBalance(SPONSOR, "confirmed");
-        if (alive) setSponsorSol(lamports / LAMPORTS_PER_SOL);
-      } catch (e) {
-        console.error("[anonboard] sponsor balance read failed:", e);
-      }
-    };
-    tick();
-    const h = setInterval(tick, 5000);
-    return () => {
-      alive = false;
-      clearInterval(h);
-    };
-  }, []);
-  return sponsorSol;
 }

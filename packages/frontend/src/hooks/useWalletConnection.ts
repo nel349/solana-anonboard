@@ -6,9 +6,9 @@ import {
   connectMidnightWallet,
   type ConnectedWallet,
   type DetectedWallet,
-} from "./midnight/wallet.ts";
-import { loadOrCreateSecretForWallet } from "./session.ts";
-import { NETWORK_ID } from "./config.ts";
+} from "../midnight/wallet.ts";
+import { loadOrCreateSecretForWallet } from "../session.ts";
+import { NETWORK_ID } from "../config.ts";
 import type { SetStatus } from "./useAppStatus.ts";
 
 export type WalletConnection = {

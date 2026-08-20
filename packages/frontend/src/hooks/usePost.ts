@@ -3,8 +3,8 @@
 // locks on the receipt. Owns the draft and the pending-post bookkeeping.
 import { useEffect, useState } from "react";
 import type { Keypair } from "@solana/web3.js";
-import { submitPost } from "./solana/post.ts";
-import type { Optimistic } from "./hooks.ts";
+import { submitPost } from "../solana/post.ts";
+import type { Optimistic } from "./useFeed.ts";
 import type { SetStatus } from "./useAppStatus.ts";
 
 export type Composer = {

@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { loadOrCreateBadge } from "./session.ts";
-import { useFeed, useSponsorBalance } from "./hooks.ts";
-import { useTheme } from "./useTheme.ts";
-import { useAppStatus } from "./useAppStatus.ts";
-import { useWalletConnection } from "./useWalletConnection.ts";
-import { useJoin } from "./useJoin.ts";
-import { usePost } from "./usePost.ts";
+import { useFeed } from "./hooks/useFeed.ts";
+import { useSponsorBalance } from "./hooks/useSponsorBalance.ts";
+import { useTheme } from "./hooks/useTheme.ts";
+import { useAppStatus } from "./hooks/useAppStatus.ts";
+import { useWalletConnection } from "./hooks/useWalletConnection.ts";
+import { useJoin } from "./hooks/useJoin.ts";
+import { usePost } from "./hooks/usePost.ts";
 import { SolanaPanel } from "./components/SolanaPanel.tsx";
 import { Hero } from "./components/Hero.tsx";
 import { BadgeHeader } from "./components/BadgeHeader.tsx";

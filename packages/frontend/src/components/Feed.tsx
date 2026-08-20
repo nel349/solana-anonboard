@@ -1,6 +1,6 @@
 // The board: pending (optimistic) posts first, then the real feed with its accept/reject
 // verdict. An optimistic row is hidden once its real row (same body + this badge) arrives.
-import type { Post, Optimistic } from "../hooks.ts";
+import type { Post, Optimistic } from "../hooks/useFeed.ts";
 
 export function Feed({
   posts,

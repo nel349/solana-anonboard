@@ -1,5 +1,5 @@
 // The shared status line. Renders nothing when empty; errors get an assertive ARIA role.
-import type { Status } from "../useAppStatus.ts";
+import type { Status } from "../hooks/useAppStatus.ts";
 
 export function StatusLine({ status }: { status: Status }) {
   if (!status.msg) return null;

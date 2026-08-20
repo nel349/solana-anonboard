@@ -3,9 +3,9 @@
 // flag (so membership shows immediately, before the sync node catches up).
 import { useEffect, useState } from "react";
 import type { Keypair } from "@solana/web3.js";
-import { joinViaWallet, deriveMemberPublicKey, toHexString } from "./midnight/join.ts";
-import type { ConnectedWallet } from "./midnight/wallet.ts";
-import { CONTRACT_ADDRESS, OPERATOR_URL } from "./config.ts";
+import { joinViaWallet, deriveMemberPublicKey, toHexString } from "../midnight/join.ts";
+import type { ConnectedWallet } from "../midnight/wallet.ts";
+import { CONTRACT_ADDRESS, OPERATOR_URL } from "../config.ts";
 import type { SetStatus } from "./useAppStatus.ts";
 
 // dApp-connector / Effect failures often wrap the real reason behind an empty
