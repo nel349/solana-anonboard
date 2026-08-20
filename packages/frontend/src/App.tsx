@@ -1,19 +1,23 @@
 import { useRef, useState } from "react";
 import { loadOrCreateBadge } from "./session.ts";
-import { useFeed } from "./hooks/useFeed.ts";
-import { useSponsorBalance } from "./hooks/useSponsorBalance.ts";
-import { useTheme } from "./hooks/useTheme.ts";
-import { useAppStatus } from "./hooks/useAppStatus.ts";
-import { useWalletConnection } from "./hooks/useWalletConnection.ts";
-import { useJoin } from "./hooks/useJoin.ts";
-import { usePost } from "./hooks/usePost.ts";
-import { SolanaPanel } from "./components/SolanaPanel.tsx";
-import { Hero } from "./components/Hero.tsx";
-import { BadgeHeader } from "./components/BadgeHeader.tsx";
-import { Composer } from "./components/Composer.tsx";
-import { StatusLine } from "./components/StatusLine.tsx";
-import { JoinRow } from "./components/JoinRow.tsx";
-import { Feed } from "./components/Feed.tsx";
+import {
+  useFeed,
+  useSponsorBalance,
+  useTheme,
+  useAppStatus,
+  useWalletConnection,
+  useJoin,
+  usePost,
+} from "./hooks";
+import {
+  SolanaPanel,
+  Hero,
+  BadgeHeader,
+  Composer,
+  StatusLine,
+  JoinRow,
+  Feed,
+} from "./components";
 
 export function App() {
   const badge = useRef(loadOrCreateBadge()).current;
