@@ -7,6 +7,7 @@ import {
   DEV_NODE_API_URL,
   DEV_OPERATOR_URL,
   DEV_RPC_URL,
+  POST_PROGRAM_ID as DEFAULT_POST_PROGRAM_ID,
 } from "@solana-anonboard/contracts-solana";
 
 // Solana RPC. Defaults to the local validator; set VITE_SOLANA_RPC_URL (via
@@ -18,8 +19,14 @@ export const OPERATOR_URL = DEV_OPERATOR_URL;
 export const POSTS_URL = `${DEV_NODE_API_URL}/api/posts`;
 export const BADGES_URL = `${DEV_NODE_API_URL}/api/badges`;
 
-export const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
-export const SPONSOR_ADDR = DEV_BATCHER_FEE_PAYER; // for display
+// Batcher fee-payer (sponsor) + post program. Default to the committed local dev values;
+// VITE_BATCHER_FEE_PAYER / VITE_POST_PROGRAM_ID override them on devnet.
+const BATCHER_FEE_PAYER =
+  (import.meta.env.VITE_BATCHER_FEE_PAYER as string | undefined) || DEV_BATCHER_FEE_PAYER;
+export const SPONSOR = new PublicKey(BATCHER_FEE_PAYER);
+export const SPONSOR_ADDR = BATCHER_FEE_PAYER; // for display
+export const POST_PROGRAM_ID =
+  (import.meta.env.VITE_POST_PROGRAM_ID as string | undefined) || DEFAULT_POST_PROGRAM_ID;
 
 export const ADDRESS_TYPE_SOLANA = 9; // AddressType.SOLANA (see @effectstream/utils)
 export const MAX_BODY = 280; // bounded by the Solana tx size

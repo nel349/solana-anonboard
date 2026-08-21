@@ -15,9 +15,11 @@ const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 // Validator waits on the anonboard build (needs build/anonboard.so for `--bpf-program`).
 // cwd, not resolveFrom: require.resolve can't see this template's workspace
 // packages once @effectstream/orchestrator is an installed npm dep.
-const solanaProcesses = launchSolana("@solana-anonboard/node", {
-  cwd: path.join(root, "packages/node"),
-});
+// On devnet the Solana chain is hosted (dev.ts provisioned it) — skip the local validator.
+const DEVNET = process.env.SOLANA_NETWORK === "devnet";
+const solanaProcesses = DEVNET
+  ? []
+  : launchSolana("@solana-anonboard/node", { cwd: path.join(root, "packages/node") });
 const solanaValidatorIdx = solanaProcesses.findIndex(
   (p) => p.name === SolanaNames.SOLANA_VALIDATOR,
 );
@@ -265,7 +267,7 @@ export default {
       env: { PGLITE: "true", ...midnightEnv },
       dependsOn: [
         DbNames.PGLITE_WAIT,
-        SolanaNames.SOLANA_VALIDATOR_WAIT,
+        ...(DEVNET ? [] : [SolanaNames.SOLANA_VALIDATOR_WAIT]),
         ...midnightDeps,
       ],
     },
@@ -283,14 +285,20 @@ export default {
       dependsOn: [...midnightDeps],
     },
 
-    {
-      name: "airdrop-batcher",
-      description: "Airdrop SOL to batcher wallet",
-      args: ["run", "packages/node/airdrop.ts"],
-      waitToExit: true,
-      type: "system-dependency",
-      dependsOn: [SolanaNames.SOLANA_VALIDATOR_WAIT],
-    },
+    // Local validator only: fund the batcher from genesis. On devnet the fee-payer is
+    // already faucet-funded by the provision step.
+    ...(DEVNET
+      ? []
+      : [
+          {
+            name: "airdrop-batcher",
+            description: "Airdrop SOL to batcher wallet",
+            args: ["run", "packages/node/airdrop.ts"],
+            waitToExit: true,
+            type: "system-dependency" as const,
+            dependsOn: [SolanaNames.SOLANA_VALIDATOR_WAIT],
+          },
+        ]),
 
     {
       name: "batcher",
@@ -300,7 +308,7 @@ export default {
       type: "system-dependency",
       link: "http://localhost:3334",
       stopProcessAtPort: [3334],
-      dependsOn: ["airdrop-batcher"],
+      dependsOn: DEVNET ? [] : ["airdrop-batcher"],
     },
 
     {

@@ -18,7 +18,8 @@ import path from "node:path";
 import { DEV_PORTS } from "./dev-ports.ts";
 import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
-import { DEVNET_RPC } from "./provision-devnet.ts";
+import { DEVNET_RPC, DEVNET_BATCHER_KEYPAIR, provisionDevnet } from "./provision-devnet.ts";
+import { SOLANA_DEVNET_PROGRAM_ID } from "../packages/contracts-solana/devnet.ts";
 import readline from "node:readline/promises";
 
 const root = path.resolve(import.meta.dirname!, "..");
@@ -142,10 +143,25 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   const rpc = process.env.SOLANA_RPC_URL || (choice === "devnet" ? DEVNET_RPC : LOCAL_RPC);
   process.env.SOLANA_RPC_URL = rpc;
   process.env.VITE_SOLANA_RPC_URL = rpc;
+
+  if (choice !== "devnet") {
+    process.stdout.write(`${c.dim}→ Solana on the local validator (posts reset each run).${c.reset}\n`);
+    return;
+  }
+
+  // Provision the shared devnet program + a funded fee-payer, then export the resolved
+  // values so every service (frontend, batcher, sync) targets devnet.
+  process.stdout.write(`${c.yellow}→ Solana on devnet — provisioning (fund fee-payer + reuse the shared program)…${c.reset}\n`);
+  const { feePayer, deploySlot } = await provisionDevnet((m) =>
+    process.stdout.write(`${c.dim}${m}${c.reset}\n`),
+  );
+  process.env.POST_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
+  process.env.VITE_POST_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
+  process.env.VITE_BATCHER_FEE_PAYER = feePayer;
+  process.env.SOLANA_BATCHER_KEYPAIR = DEVNET_BATCHER_KEYPAIR;
+  process.env.SOLANA_START_SLOT = String(deploySlot);
   process.stdout.write(
-    choice === "devnet"
-      ? `${c.yellow}→ Solana on devnet (${rpc}) — posts persist across restarts.${c.reset}\n`
-      : `${c.dim}→ Solana on the local validator (posts reset each run).${c.reset}\n`,
+    `${c.yellow}→ devnet ready — program ${SOLANA_DEVNET_PROGRAM_ID.slice(0, 8)}…, posts persist across restarts.${c.reset}\n`,
   );
 }
 await maybePromptSolanaNetwork();

@@ -16,11 +16,12 @@ import {
 export function createPostInstruction(
   author: PublicKey,
   body: string,
+  programId: string = POST_PROGRAM_ID,
 ): TransactionInstruction {
   const bodyBytes = Buffer.from(body, "utf8");
   const data = Buffer.concat([Buffer.from([DISCRIMINANT_POST]), bodyBytes]);
   return new TransactionInstruction({
-    programId: new PublicKey(POST_PROGRAM_ID),
+    programId: new PublicKey(programId),
     keys: [{ pubkey: author, isSigner: true, isWritable: false }],
     data,
   });

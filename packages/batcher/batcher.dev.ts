@@ -27,17 +27,14 @@ const NAMESPACE = process.env.BATCHER_NAMESPACE ?? DEV_NAMESPACE;
 const POLLING_INTERVAL_MS = Number(process.env.BATCHER_POLLING_MS ?? "1000");
 
 const PKG_DIR = import.meta.dirname!;
-const BATCHER_KEYPAIR = path.join(
-  PKG_DIR,
-  "keypair",
-  "batcher-wallet.json",
-);
+const BATCHER_KEYPAIR =
+  process.env.SOLANA_BATCHER_KEYPAIR ?? path.join(PKG_DIR, "keypair", "batcher-wallet.json");
 
 const solana = createSolanaAdapter({
   rpcUrl: RPC_URL,
   batcherKeypairPath: BATCHER_KEYPAIR,
   syncProtocolName: SYNC_PROTOCOL_NAME,
-  targetProgramId: POST_PROGRAM_ID,
+  targetProgramId: process.env.POST_PROGRAM_ID ?? POST_PROGRAM_ID,
   // anonboard's post program writes no account, so the sponsor is never an
   // instruction account and this flag has no effect here. Left at the template
   // default; per solana-adapter.ts a pure-log program would normally set false.

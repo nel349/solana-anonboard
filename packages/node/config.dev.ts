@@ -8,6 +8,10 @@ import {
   PrimitiveTypeSolanaProgramLog,
 } from "@effectstream/sm/builtin";
 import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana/program-id";
+
+// Solana network overrides (env-driven; default = local validator).
+const SOLANA_PROGRAM_ID = process.env.POST_PROGRAM_ID ?? POST_PROGRAM_ID;
+const SOLANA_START_SLOT = Number(process.env.SOLANA_START_SLOT ?? "0");
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import * as AnonboardContract from "@solana-anonboard/midnight-contract/contract";
@@ -73,8 +77,8 @@ export const config = new ConfigBuilder()
       .addNetwork({
         name: "solanaMain",
         type: ConfigNetworkType.SOLANA,
-        rpcUrl: "http://localhost:8899",
-        networkId: "localnet",
+        rpcUrl: process.env.SOLANA_RPC_URL ?? "http://localhost:8899",
+        networkId: process.env.SOLANA_NETWORK === "devnet" ? "devnet" : "localnet",
       })
       .addNetwork({
         name: "midnight",
@@ -101,7 +105,7 @@ export const config = new ConfigBuilder()
         (_network, _deployments) => ({
           name: "parallelSolanaRPC",
           type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
-          startBlockHeight: 0,
+          startBlockHeight: SOLANA_START_SLOT,
           pollingInterval: 250, // poll near Solana's slot time; localhost, no cost
           // delayMs is a HARD FLOOR on landing (post lands at blockTime+delayMs).
           // Must stay ≳ the real fetch lag (≈1 slot + poll) or the merge jitters.
@@ -136,8 +140,8 @@ export const config = new ConfigBuilder()
         (_network, _deployments, _syncProtocol) => ({
           name: "SolanaProgramLog",
           type: PrimitiveTypeSolanaProgramLog,
-          startBlockHeight: 0,
-          programId: POST_PROGRAM_ID,
+          startBlockHeight: SOLANA_START_SLOT,
+          programId: SOLANA_PROGRAM_ID,
           stateMachinePrefix: "solana-post",
         }),
       )

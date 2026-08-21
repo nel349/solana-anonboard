@@ -12,7 +12,7 @@ import {
   createPostInstruction,
   DEV_BATCHER_TARGET,
 } from "@solana-anonboard/contracts-solana";
-import { RPC, BATCHER_URL, SPONSOR, ADDRESS_TYPE_SOLANA } from "../config.ts";
+import { RPC, BATCHER_URL, SPONSOR, ADDRESS_TYPE_SOLANA, POST_PROGRAM_ID } from "../config.ts";
 
 export async function submitPost(
   badge: Keypair,
@@ -25,7 +25,7 @@ export async function submitPost(
   tx.feePayer = SPONSOR;
   tx.recentBlockhash = blockhash;
   tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-  tx.add(createPostInstruction(badge.publicKey, body));
+  tx.add(createPostInstruction(badge.publicKey, body, POST_PROGRAM_ID));
   tx.partialSign(badge);
 
   const b64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
