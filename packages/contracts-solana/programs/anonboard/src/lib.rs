@@ -21,7 +21,7 @@ use solana_program::{
     entrypoint,
     entrypoint::ProgramResult,
     msg,
-    program::invoke_signed,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -73,6 +73,11 @@ pub fn process_instruction<'a>(
 }
 
 /// Create a program-owned PDA account, rent funded by `payer`, signed by the PDA seeds.
+///
+/// Robust against a pre-funded target: `create_account` fails if the PDA already holds
+/// lamports, which an attacker could exploit by sending 1 lamport to a victim's (deterministic)
+/// counter/post PDA to block their post. So if the account is already funded we initialize it
+/// manually instead — top up to rent-exempt, then allocate + assign — which cannot be blocked.
 fn create_pda<'a>(
     program_id: &Pubkey,
     payer: &AccountInfo<'a>,
@@ -81,16 +86,29 @@ fn create_pda<'a>(
     signer_seeds: &[&[u8]],
     space: usize,
 ) -> ProgramResult {
-    let lamports = Rent::get()?.minimum_balance(space);
+    let rent = Rent::get()?.minimum_balance(space);
+    if new_account.lamports() == 0 {
+        return invoke_signed(
+            &system_instruction::create_account(payer.key, new_account.key, rent, space as u64, program_id),
+            &[payer.clone(), new_account.clone(), system_prog.clone()],
+            &[signer_seeds],
+        );
+    }
+    // Pre-funded (griefing or a stray transfer): create_account would fail, so init in place.
+    if new_account.lamports() < rent {
+        invoke(
+            &system_instruction::transfer(payer.key, new_account.key, rent - new_account.lamports()),
+            &[payer.clone(), new_account.clone(), system_prog.clone()],
+        )?;
+    }
     invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            new_account.key,
-            lamports,
-            space as u64,
-            program_id,
-        ),
-        &[payer.clone(), new_account.clone(), system_prog.clone()],
+        &system_instruction::allocate(new_account.key, space as u64),
+        &[new_account.clone(), system_prog.clone()],
+        &[signer_seeds],
+    )?;
+    invoke_signed(
+        &system_instruction::assign(new_account.key, program_id),
+        &[new_account.clone(), system_prog.clone()],
         &[signer_seeds],
     )
 }
@@ -112,6 +130,9 @@ fn handle_post<'a>(
     }
     if !payer.is_signer {
         return Err(ProgramError::MissingRequiredSignature);
+    }
+    if system_prog.key != &system_program::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
     if body.len() > MAX_BODY {
         return Err(ProgramError::InvalidInstructionData);
