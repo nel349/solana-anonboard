@@ -19,8 +19,9 @@ import {
   LAMPORTS_PER_SOL,
   Transaction,
   sendAndConfirmTransaction,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
-import { createPostInstruction } from "@solana-anonboard/contracts-solana";
+import { createPostInstruction, nextPostIndex } from "@solana-anonboard/contracts-solana";
 import {
   Anonboard,
   createAnonboardPrivateState,
@@ -133,8 +134,10 @@ async function main() {
     // this through the batcher as fee-payer (see gasless-post.ts).
     const sig = await conn.requestAirdrop(kp.publicKey, LAMPORTS_PER_SOL);
     await conn.confirmTransaction(sig, "confirmed");
+    const index = await nextPostIndex(conn, kp.publicKey);
     const tx = new Transaction().add(
-      createPostInstruction(kp.publicKey, body),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+      createPostInstruction(kp.publicKey, kp.publicKey, index, body),
     );
     const h = await sendAndConfirmTransaction(conn, tx, [kp], {
       commitment: "confirmed",

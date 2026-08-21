@@ -23,6 +23,7 @@ import {
 } from "@solana/web3.js";
 import {
   createPostInstruction,
+  nextPostIndex,
   POST_PROGRAM_ID,
   DEV_RPC_URL,
   DEV_BATCHER_URL,
@@ -61,8 +62,9 @@ async function main() {
   const tx = new Transaction();
   tx.feePayer = SPONSOR;
   tx.recentBlockhash = blockhash;
-  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-  tx.add(createPostInstruction(poster.publicKey, BODY, PROGRAM_ID));
+  const index = await nextPostIndex(conn, poster.publicKey, PROGRAM_ID);
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
+  tx.add(createPostInstruction(poster.publicKey, SPONSOR, index, BODY, PROGRAM_ID));
 
   tx.partialSign(poster);
   const base64 = tx.serialize({ requireAllSignatures: false }).toString("base64");

@@ -1,107 +1,61 @@
-// Unit tests for the devnet post reader core. These assert real values — that the index
-// recovers the exact post, that a CPI cannot spoof a post under our program's name (the
-// authorization boundary), that reverted txs are dropped, and that the sweep is idempotent.
-// A bug here looks identical to "posts never appear on devnet". Run: bun test (this package).
+// Unit tests for the devnet post reader core (account-storage version). These assert real
+// values: a program account decodes to the exact post, non-post accounts (counters, garbage)
+// are dropped, and posts come out oldest-slot-first. A bug here looks like "posts never appear
+// on devnet". Run: bun test (from this package).
 import { describe, it, expect } from "bun:test";
-import bs58 from "bs58";
-import { DevnetPostIndex, extractPosts, type ReaderRpc } from "../solana-post-reader-lib.ts";
+import { PublicKey } from "@solana/web3.js";
+import { Buffer } from "node:buffer";
+import { MAX_BODY, POST_LAYOUT, TAG_POST, TAG_COUNTER } from "@solana-anonboard/contracts-solana";
+import { postsFromAccounts } from "../solana-post-reader-lib.ts";
 
-const PROGRAM = "ELEQwpLmPFPzkkgK7K6K5RHdFM5uBsvpFekWGAuufd7j";
-const OTHER = "EVIL1111111111111111111111111111111111111111";
-const AUTHOR = bs58.encode(Uint8Array.from({ length: 32 }, (_, i) => (i + 1) & 0xff));
-const START = 1000;
+const AUTHOR = new PublicKey(Uint8Array.from({ length: 32 }, (_, i) => (i + 1) & 0xff));
+const PAYER = new PublicKey(Uint8Array.from({ length: 32 }, (_, i) => (i + 9) & 0xff));
 
-function ourLogs(author: string, slot: number, body: string): string[] {
-  return [
-    `Program ${PROGRAM} invoke [1]`,
-    `Program log: ANONBOARD_POST|${author}|${slot}|${body}`,
-    `Program ${PROGRAM} consumed 12104 of 200000 compute units`,
-    `Program ${PROGRAM} success`,
-  ];
+// Mirror the program's write (lib.rs) so the test exercises the real decodePostAccount.
+function encodePost(slot: number, index: number, body: string): Uint8Array {
+  const buf = Buffer.alloc(POST_LAYOUT.body + MAX_BODY);
+  buf[0] = TAG_POST;
+  AUTHOR.toBuffer().copy(buf, POST_LAYOUT.author);
+  PAYER.toBuffer().copy(buf, POST_LAYOUT.payer);
+  buf.writeBigUInt64LE(BigInt(slot), POST_LAYOUT.slot);
+  buf.writeBigUInt64LE(BigInt(index), POST_LAYOUT.index);
+  const b = Buffer.from(body, "utf8");
+  buf.writeUInt16LE(b.length, POST_LAYOUT.bodyLen);
+  b.copy(buf, POST_LAYOUT.body);
+  return Uint8Array.from(buf);
+}
+function encodeCounter(count: number): Uint8Array {
+  const buf = Buffer.alloc(9);
+  buf[0] = TAG_COUNTER;
+  buf.writeBigUInt64LE(BigInt(count), 1);
+  return Uint8Array.from(buf);
 }
 
-function stubRpc(): ReaderRpc & { txCalls: number } {
-  const sigs = [
-    { signature: "sigReverted", slot: 1006, err: { InstructionError: [0, "X"] } },
-    { signature: "sigPost", slot: 1005, err: null },
-  ]; // newest-first
-  const state = {
-    txCalls: 0,
-    getSlot: async () => 1010,
-    getSignaturesForAddress: async (_p: string, opts: { before?: string; limit: number }) =>
-      opts.before ? [] : sigs, // single page
-    getTransaction: async (signature: string) => {
-      state.txCalls++;
-      if (signature === "sigPost") return { meta: { logMessages: ourLogs(AUTHOR, 1005, "hello devnet") } };
-      return { meta: { logMessages: [] } };
-    },
-  };
-  return state;
-}
-
-describe("extractPosts (authorization boundary)", () => {
-  it("recovers the exact post our program emitted", () => {
-    const posts = extractPosts({ signature: "s", slot: 5, logMessages: ourLogs(AUTHOR, 5, "hi|with|pipes") }, PROGRAM);
-    expect(posts).toEqual([{ author: AUTHOR, body: "hi|with|pipes", slot: 5, signature: "s" }]);
+describe("postsFromAccounts", () => {
+  it("decodes a post account to the exact fields", () => {
+    const posts = postsFromAccounts([{ data: encodePost(60, 0, "gm|with pipe ✅") }]);
+    expect(posts).toEqual([{ author: AUTHOR.toBase58(), body: "gm|with pipe ✅", slot: 60 }]);
   });
 
-  it("does NOT attribute a post a CPI to another program logged under our name", () => {
-    const logs = [
-      `Program ${PROGRAM} invoke [1]`,
-      `Program log: ANONBOARD_POST|${AUTHOR}|5|real`,
-      `Program ${OTHER} invoke [2]`,
-      `Program log: ANONBOARD_POST|victimPubkey|5|spoofed`, // emitted by OTHER, not us
-      `Program ${OTHER} success`,
-      `Program ${PROGRAM} success`,
-    ];
-    const posts = extractPosts({ signature: "s", slot: 5, logMessages: logs }, PROGRAM);
-    expect(posts.map((p) => p.body)).toEqual(["real"]); // the spoof is excluded
+  it("drops non-post accounts (counter + garbage), keeps only posts", () => {
+    const posts = postsFromAccounts([
+      { data: encodeCounter(3) }, // tag = counter
+      { data: encodePost(61, 1, "real") },
+      { data: Uint8Array.of(1, 2, 3) }, // too short
+    ]);
+    expect(posts.map((p) => p.body)).toEqual(["real"]);
   });
 
-  it("returns nothing for a tx that never invoked our program", () => {
-    const logs = [`Program ${OTHER} invoke [1]`, `Program log: ANONBOARD_POST|x|5|y`, `Program ${OTHER} success`];
-    expect(extractPosts({ signature: "s", slot: 5, logMessages: logs }, PROGRAM)).toEqual([]);
-  });
-});
-
-describe("DevnetPostIndex", () => {
-  it("indexes devnet signatures and yields the parsed post", async () => {
-    const rpc = stubRpc();
-    const idx = new DevnetPostIndex(rpc, PROGRAM, START);
-    await idx.refresh();
-    expect(idx.posts()).toEqual([{ author: AUTHOR, body: "hello devnet", slot: 1005, signature: "sigPost" }]);
+  it("returns posts oldest-slot-first (DB insertion → newest gets the highest id)", () => {
+    const posts = postsFromAccounts([
+      { data: encodePost(200, 2, "third") },
+      { data: encodePost(100, 0, "first") },
+      { data: encodePost(150, 1, "second") },
+    ]);
+    expect(posts.map((p) => p.slot)).toEqual([100, 150, 200]);
   });
 
-  it("drops a reverted tx", async () => {
-    const rpc = stubRpc();
-    const idx = new DevnetPostIndex(rpc, PROGRAM, START);
-    await idx.refresh();
-    expect(idx.posts().some((p) => p.signature === "sigReverted")).toBe(false);
-  });
-
-  it("is idempotent: a second refresh re-fetches no known transaction", async () => {
-    const rpc = stubRpc();
-    const idx = new DevnetPostIndex(rpc, PROGRAM, START);
-    await idx.refresh();
-    const after = rpc.txCalls;
-    await idx.refresh();
-    expect(rpc.txCalls).toBe(after);
-  });
-
-  it("orders posts oldest-slot-first so newest gets the highest DB id", async () => {
-    const many: ReaderRpc = {
-      getSlot: async () => 2000,
-      getSignaturesForAddress: async (_p, opts) =>
-        opts.before ? [] : [
-          { signature: "b", slot: 1200, err: null },
-          { signature: "a", slot: 1100, err: null },
-        ],
-      getTransaction: async (sig) => ({
-        meta: { logMessages: ourLogs(AUTHOR, sig === "b" ? 1200 : 1100, sig) },
-      }),
-    };
-    const idx = new DevnetPostIndex(many, PROGRAM, START);
-    await idx.refresh();
-    expect(idx.posts().map((p) => p.slot)).toEqual([1100, 1200]);
+  it("handles an empty account list", () => {
+    expect(postsFromAccounts([])).toEqual([]);
   });
 });

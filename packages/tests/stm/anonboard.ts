@@ -47,6 +47,7 @@ import {
 import { OWNER_SECRET_KEY } from "../../contracts-midnight/owner-key.ts";
 import {
   createPostInstruction,
+  nextPostIndex,
   DEV_RPC_URL,
   DEV_BATCHER_URL,
   DEV_BATCHER_FEE_PAYER,
@@ -256,8 +257,9 @@ export async function sendPost(poster: Keypair, body: string): Promise<void> {
   const tx = new Transaction();
   tx.feePayer = sponsor;
   tx.recentBlockhash = blockhash;
-  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-  tx.add(createPostInstruction(poster.publicKey, body));
+  const index = await nextPostIndex(conn, poster.publicKey);
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
+  tx.add(createPostInstruction(poster.publicKey, sponsor, index, body));
 
   tx.partialSign(poster);
   const base64 = tx

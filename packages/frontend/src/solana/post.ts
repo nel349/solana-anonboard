@@ -10,6 +10,7 @@ import {
 import bs58 from "bs58";
 import {
   createPostInstruction,
+  nextPostIndex,
   DEV_BATCHER_TARGET,
 } from "@solana-anonboard/contracts-solana";
 import { RPC, BATCHER_URL, SPONSOR, ADDRESS_TYPE_SOLANA, POST_PROGRAM_ID } from "../config.ts";
@@ -24,8 +25,10 @@ export async function submitPost(
   const tx = new Transaction();
   tx.feePayer = SPONSOR;
   tx.recentBlockhash = blockhash;
-  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-  tx.add(createPostInstruction(badge.publicKey, body, POST_PROGRAM_ID));
+  const index = await nextPostIndex(conn, badge.publicKey, POST_PROGRAM_ID);
+  // Account creation (post PDA + first-post counter) needs more compute than a bare log.
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
+  tx.add(createPostInstruction(badge.publicKey, SPONSOR, index, body, POST_PROGRAM_ID));
   tx.partialSign(badge);
 
   const b64 = tx.serialize({ requireAllSignatures: false }).toString("base64");

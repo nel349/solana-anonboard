@@ -2,10 +2,25 @@
 export {
   POST_PROGRAM_ID,
   DISCRIMINANT_POST,
+  DISCRIMINANT_CLOSE,
+  POST_SEED,
+  COUNTER_SEED,
+  TAG_POST,
+  TAG_COUNTER,
+  MAX_BODY,
+  POST_LAYOUT,
 } from "./program-id.ts";
 export {
   createPostInstruction,
+  createCloseInstruction,
+  counterPda,
+  postPda,
+  nextPostIndex,
 } from "./instructions.ts";
+export {
+  decodePostAccount,
+  type PostAccount,
+} from "./post-account.ts";
 export {
   DEV_RPC_URL,
   DEV_BATCHER_URL,

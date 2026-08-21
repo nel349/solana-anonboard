@@ -1,13 +1,12 @@
-// Devnet Solana post reader. On devnet the SDK's Solana sync leg is disabled (it can't
-// getBlock — public devnet bans it — and its catch-up grows unbounded), so this reads posts
-// directly with the methods devnet serves: getSignaturesForAddress + getTransaction, indexes
-// them (O(our posts)), and folds them into the posts table with the SAME arbiter rule as
-// state-machine.ts's `solana-post` STF — a post counts only if its author holds a Midnight
-// badge, with the cross-chain ordering race handled by an idempotent backfill each cycle.
-//
-// It runs as its own process with its own pglite connection (pglite accepts concurrent
-// clients); the sync node keeps folding the Midnight badge set. Config via SOLANA_READER_* env.
+// Devnet Solana post reader — account-storage version. On devnet the SDK's Solana leg is off
+// (it can't getBlock), so this lists the program's post accounts with getProgramAccounts
+// (served on devnet), decodes them, and folds them into the posts table with the SAME arbiter
+// rule as state-machine.ts's solana-post STF (accepted = author holds a Midnight badge), plus
+// an idempotent backfill for the cross-chain race. Reading state means no history scan and no
+// start slot — a restart just re-lists the accounts. Runs as its own process with its own
+// pglite connection. Config via SOLANA_READER_* env.
 
+import { Buffer } from "node:buffer";
 import { getConnection, runPreparedQuery } from "@effectstream/db";
 import {
   acceptPostsForAuthor,
@@ -17,7 +16,8 @@ import {
   REASON_BADGE_VERIFIED,
   REASON_NO_BADGE,
 } from "@solana-anonboard/database";
-import { DevnetPostIndex, type ReaderRpc } from "./solana-post-reader-lib.ts";
+import { MAX_BODY, POST_LAYOUT } from "@solana-anonboard/contracts-solana";
+import { postsFromAccounts } from "./solana-post-reader-lib.ts";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -28,8 +28,10 @@ const required = (name: string): string => {
 const PORT = Number(process.env.SOLANA_READER_PORT ?? "8898");
 const UPSTREAM = required("SOLANA_READER_UPSTREAM").replace(/\/+$/, "");
 const PROGRAM_ID = required("SOLANA_READER_PROGRAM_ID");
-const START_SLOT = Number(required("SOLANA_READER_START_SLOT"));
 const REFRESH_MS = Number(process.env.SOLANA_READER_REFRESH_MS ?? "1000");
+
+// Post accounts are exactly this size (counter accounts are smaller) — filter to them upstream.
+const POST_SIZE = POST_LAYOUT.body + MAX_BODY;
 
 async function upstreamRpc<T>(method: string, params: unknown[]): Promise<T> {
   const res = await fetch(UPSTREAM, {
@@ -42,43 +44,28 @@ async function upstreamRpc<T>(method: string, params: unknown[]): Promise<T> {
   return json.result as T;
 }
 
-const rpc: ReaderRpc = {
-  getSlot: () => upstreamRpc<number>("getSlot", [{ commitment: "confirmed" }]),
-  getSignaturesForAddress: (program, opts) =>
-    upstreamRpc("getSignaturesForAddress", [
-      program,
-      { limit: opts.limit, ...(opts.before ? { before: opts.before } : {}) },
-    ]),
-  async getTransaction(signature) {
-    const tx = await upstreamRpc<{ meta: { logMessages: string[] | null } | null } | null>(
-      "getTransaction",
-      [signature, { maxSupportedTransactionVersion: 0, encoding: "json", commitment: "confirmed" }],
-    );
-    if (!tx) return null;
-    return { meta: tx.meta ? { logMessages: tx.meta.logMessages ?? null } : null };
-  },
-};
+async function fetchPostAccounts(): Promise<{ data: Uint8Array }[]> {
+  const res = await upstreamRpc<{ account: { data: [string, string] } }[]>("getProgramAccounts", [
+    PROGRAM_ID,
+    { encoding: "base64", filters: [{ dataSize: POST_SIZE }] },
+  ]);
+  return res.map((r) => ({ data: Uint8Array.from(Buffer.from(r.account.data[0], "base64")) }));
+}
 
 const pool = getConnection();
-const index = new DevnetPostIndex(rpc, PROGRAM_ID, START_SLOT);
 let firstSweepDone = false;
 let lastError = "";
 
-// Idempotent CREATE TABLE IF NOT EXISTS — safe to run even though the sync node also ensures
-// the same schema (pglite serializes across the two connections).
+// Idempotent CREATE TABLE IF NOT EXISTS — safe alongside the sync node (pglite serializes).
 async function ensureSchema(): Promise<void> {
-  for (const migration of migrationTable) {
-    await pool.query(migration.sql);
-  }
+  for (const migration of migrationTable) await pool.query(migration.sql);
 }
 
-// One fold: index new posts, insert each with a point-in-time badge check, then backfill
-// acceptance for any author whose badge has since arrived. Both are idempotent, so a post's
+// One fold: list post accounts, insert each with a point-in-time badge check, then backfill
+// acceptance for any author whose badge has since arrived. Both idempotent, so a post's
 // accepted status is eventually correct regardless of which chain's event lands first.
 async function fold(): Promise<void> {
-  await index.refresh();
-  const posts = index.posts();
-  // One badge lookup per DISTINCT author (not per post).
+  const posts = postsFromAccounts(await fetchPostAccounts());
   const badged = new Set<string>();
   for (const author of new Set(posts.map((p) => p.author))) {
     const badge = await runPreparedQuery(getBadge.run({ pubkey: author }, pool), "reader:getBadge");
@@ -101,9 +88,6 @@ async function fold(): Promise<void> {
       "reader:insertPost",
     );
   }
-  // Backfill: a post first inserted before its author's badge synced stays accepted=false
-  // (insertPost is DO-NOTHING, so a later true insert can't flip it). Once the badge is here,
-  // accept it. Mirrors state-machine.ts's cross-chain race fix; idempotent.
   for (const author of badged) {
     await runPreparedQuery(acceptPostsForAuthor.run({ author }, pool), "reader:accept");
   }
@@ -124,8 +108,7 @@ async function loop(): Promise<void> {
   }
 }
 
-// Health: 200 only once the first sweep has folded the existing posts, so the orchestrator's
-// :wait (and the dev checklist) treat the reader as ready when posts are actually loaded.
+// Health: 200 only once the first sweep has folded the existing posts.
 const server = Bun.serve({
   port: PORT,
   fetch() {
@@ -136,7 +119,8 @@ const server = Bun.serve({
 });
 
 console.log(
-  `[solana-post-reader] ${UPSTREAM} program ${PROGRAM_ID.slice(0, 8)}… from slot ${START_SLOT}; ` +
-    `folding posts every ${REFRESH_MS}ms; health on http://127.0.0.1:${server.port}`,
+  `[solana-post-reader] ${UPSTREAM} program ${PROGRAM_ID.slice(0, 8)}… ` +
+    `(getProgramAccounts, dataSize ${POST_SIZE}); folding posts every ${REFRESH_MS}ms; ` +
+    `health on http://127.0.0.1:${server.port}`,
 );
 void loop();
