@@ -24,10 +24,11 @@
     "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
     "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
     "test": "bun run packages/tests/run-tests.ts",
-    "test:unit": "bun test packages/node packages/database scripts/dev-render.test.ts packages/contracts-midnight/deployments.test.ts",
+    "test:unit": "bun test packages/node packages/contracts-solana packages/database scripts/dev-render.test.ts packages/contracts-midnight/deployments.test.ts",
     "test:contract": "bun test packages/contracts-midnight/contract-anonboard/test",
     "typecheck": "bun run scripts/typecheck.ts",
-    "postinstall": "bun run scripts/dedupe-midnight-wasm.ts"
+    "postinstall": "bun run scripts/dedupe-midnight-wasm.ts",
+    "test:program": "bun test packages/tests/solana/program.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
