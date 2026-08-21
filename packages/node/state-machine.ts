@@ -7,6 +7,7 @@ import {
   getBadge,
   insertBadge,
   insertPost,
+  REASON_BADGE_VERIFIED,
   REASON_NO_BADGE,
 } from "@solana-anonboard/database";
 import { grammar } from "./grammar.ts";
@@ -69,7 +70,7 @@ stm.addStateTransition("solana-post", function* (data) {
       slot: String(slot),
       block_height: blockHeight,
       accepted,
-      reason: accepted ? "badge verified on midnight" : REASON_NO_BADGE,
+      reason: accepted ? REASON_BADGE_VERIFIED : REASON_NO_BADGE,
     });
   }
 });

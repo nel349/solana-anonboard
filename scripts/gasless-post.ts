@@ -6,6 +6,10 @@
 // fee-payer and submits. The author pays nothing on either chain.
 //
 // Mirrors packages/frontend/src/App.tsx exactly (the shipped gasless path).
+//
+// Devnet-aware: the same env seams the frontend/batcher use (SOLANA_RPC_URL,
+// POST_PROGRAM_ID, SOLANA_BATCHER_KEYPAIR — all exported by `SOLANA_NETWORK=devnet`)
+// point this at whatever Solana the running stack targets. Unset → local dev.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -17,24 +21,34 @@ import {
   Transaction,
   ComputeBudgetProgram,
 } from "@solana/web3.js";
-import { createPostInstruction } from "@solana-anonboard/contracts-solana";
 import {
+  createPostInstruction,
+  POST_PROGRAM_ID,
   DEV_RPC_URL,
   DEV_BATCHER_URL,
   DEV_BATCHER_FEE_PAYER,
   DEV_BATCHER_TARGET,
 } from "@solana-anonboard/contracts-solana";
 
-const SPONSOR = new PublicKey(DEV_BATCHER_FEE_PAYER);
+const RPC = process.env.SOLANA_RPC_URL ?? DEV_RPC_URL;
+const PROGRAM_ID = process.env.POST_PROGRAM_ID ?? POST_PROGRAM_ID;
+const BATCHER_URL = process.env.BATCHER_URL ?? DEV_BATCHER_URL;
+// The fee-payer MUST be the batcher's own key. On devnet the stack exports the batcher
+// keypair path, so derive the sponsor from it; otherwise the committed local sponsor.
+const SPONSOR = process.env.SOLANA_BATCHER_KEYPAIR
+  ? Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(readFileSync(process.env.SOLANA_BATCHER_KEYPAIR, "utf8"))),
+    ).publicKey
+  : new PublicKey(process.env.VITE_BATCHER_FEE_PAYER ?? DEV_BATCHER_FEE_PAYER);
 const ADDRESS_TYPE_SOLANA = 9;
-const BODY = "gasless: i hold zero SOL and still posted";
+const BODY = process.env.POST_BODY ?? "gasless: i hold zero SOL and still posted";
 
 async function main() {
   const posterFile = path.resolve(import.meta.dirname!, "..", "poster.json");
   const poster = Keypair.fromSecretKey(
     Uint8Array.from(JSON.parse(readFileSync(posterFile, "utf8"))),
   );
-  const conn = new Connection(DEV_RPC_URL, "confirmed");
+  const conn = new Connection(RPC, "confirmed");
 
   const before = await conn.getBalance(poster.publicKey);
   console.log(`poster ${poster.publicKey.toBase58()}`);
@@ -48,7 +62,7 @@ async function main() {
   tx.feePayer = SPONSOR;
   tx.recentBlockhash = blockhash;
   tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
-  tx.add(createPostInstruction(poster.publicKey, BODY));
+  tx.add(createPostInstruction(poster.publicKey, BODY, PROGRAM_ID));
 
   tx.partialSign(poster);
   const base64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
@@ -57,7 +71,7 @@ async function main() {
   )?.signature;
 
   console.log("posting via batcher (sponsor co-signs + pays)…");
-  const res = await fetch(`${DEV_BATCHER_URL}/send-input`, {
+  const res = await fetch(`${BATCHER_URL}/send-input`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -107,6 +107,9 @@ FROM posts ORDER BY id DESC`,
 // drift would silently leave early posts rejected forever.
 export const REASON_NO_BADGE = "no midnight badge";
 
+// The reason written when a post's author holds a badge at fold time (accepted on sight).
+export const REASON_BADGE_VERIFIED = "badge verified on midnight";
+
 // Ordering race: Midnight syncs from block 1 while Solana is current, so a post
 // can be rejected before its badge lands. Backfill those on badge arrival; idempotent.
 export interface IAcceptPostsForAuthorParams {

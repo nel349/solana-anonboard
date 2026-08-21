@@ -4,6 +4,7 @@ export const DEV_PORTS = [
   9944, 8088, 6300, // Midnight node / indexer / proof server
   8079, // Midnight indexer rate-limiting proxy (hosted nets)
   8899, 9900, // Solana validator
+  8898, // Solana devnet post reader (health)
   5432, // PGLite
   9999, // sync node API
   3334, 3335, // batcher / operator

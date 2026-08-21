@@ -33,6 +33,27 @@ if (solanaValidatorIdx >= 0) {
   };
 }
 
+// On devnet the SDK's Solana leg is disabled (it can't getBlock on public devnet); a standalone
+// reader folds posts from devnet via getSignaturesForAddress+getTransaction (O(our posts),
+// bounded) into the same posts table, with its own pglite connection + a health port.
+const SOLANA_READER_PORT = 8898;
+const readerProcesses = DEVNET
+  ? [
+      {
+        name: "solana-post-reader",
+        description: "Devnet Solana post reader (folds posts via getSignaturesForAddress)",
+        cwd: root,
+        args: ["run", "packages/node/solana-post-reader.ts"],
+        env: { PGLITE: "true" },
+        waitToExit: false,
+        type: "system-dependency" as const,
+        link: `http://127.0.0.1:${SOLANA_READER_PORT}`,
+        stopProcessAtPort: [SOLANA_READER_PORT],
+        dependsOn: [DbNames.PGLITE_WAIT],
+      },
+    ]
+  : [];
+
 // Endpoints for the active Midnight network come from the single source of truth
 // (networks.ts). Export them as the MIDNIGHT_* overrides the vendored SDK reads, so
 // the sync node, deploy, and operator use the exact URLs the frontend does.
@@ -245,6 +266,7 @@ export default {
     },
 
     ...solanaProcesses,
+    ...readerProcesses,
 
     {
       name: "midnight-contract-compile",

@@ -119,6 +119,10 @@ await maybePromptRedeploy();
 // hosted, so posts persist across restarts. SOLANA_NETWORK env pre-empts the prompt;
 // non-interactive shells default to local. Resolves the RPC and exports it to the
 // orchestrator (SOLANA_RPC_URL for node services, VITE_SOLANA_RPC_URL for the frontend).
+// On devnet a standalone post-reader (this health port) folds Solana posts for the sync;
+// batcher/frontend/provision talk to devnet directly.
+const SOLANA_READER_PORT = 8898;
+let solanaReaderPort: number | null = null; // set when devnet is chosen; drives the checklist row
 const LOCAL_RPC = "http://localhost:8899";
 async function maybePromptSolanaNetwork(): Promise<void> {
   let choice = (process.env.SOLANA_NETWORK ?? "").toLowerCase();
@@ -160,6 +164,14 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   process.env.VITE_BATCHER_FEE_PAYER = feePayer;
   process.env.SOLANA_BATCHER_KEYPAIR = DEVNET_BATCHER_KEYPAIR;
   process.env.SOLANA_START_SLOT = String(deploySlot);
+  // On devnet the SDK's Solana leg is off (it can't getBlock); the standalone
+  // solana-post-reader folds posts via getSignaturesForAddress+getTransaction. Point it at
+  // devnet + the shared program. Batcher/frontend/provision talk to devnet directly.
+  process.env.SOLANA_READER_UPSTREAM = rpc;
+  process.env.SOLANA_READER_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
+  process.env.SOLANA_READER_START_SLOT = String(deploySlot);
+  process.env.SOLANA_READER_PORT = String(SOLANA_READER_PORT);
+  solanaReaderPort = SOLANA_READER_PORT;
   process.stdout.write(
     `${c.yellow}→ devnet ready — program ${SOLANA_DEVNET_PROGRAM_ID.slice(0, 8)}…, posts persist across restarts.${c.reset}\n`,
   );
@@ -278,7 +290,13 @@ function rows(): Row[] {
     const up = states[s.key];
     const status: Row["status"] = up ? "up"
       : s.key === "indexer" && /spo-indexer exited with ERROR/.test(logTail) ? "retry" : "wait";
-    out.push({ label: s.label, right: s.link ?? `:${s.port}`, status, note: up ? "" : s.note });
+    const devnetSolana = s.key === "solana" && solanaReaderPort;
+    out.push({
+      label: devnetSolana ? "Solana devnet" : s.label,
+      right: devnetSolana ? `:${solanaReaderPort}` : (s.link ?? `:${s.port}`),
+      status,
+      note: up ? "" : devnetSolana ? "devnet post reader; posts persist across restarts" : s.note,
+    });
   }
   return out;
 }
@@ -325,7 +343,7 @@ function readyLines(): string[] {
       ? line("Operator", "http://localhost:3335", "warming — Join enabled shortly", c.yellow)
       : line("Operator", "http://localhost:3335", "✓ Join enabled", c.green),
     line("Batcher", "http://localhost:3334"),
-    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   Solana :8899${c.reset}`,
+    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   ${solanaReaderPort ? "Solana devnet (persistent)" : "Solana :8899"}${c.reset}`,
     "",
     `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}`,
   ];
@@ -355,7 +373,9 @@ async function poll() {
       // A dead port un-sticks the row (so a crashed service after warmup goes red, and the
       // banner won't claim ready). A slow health check on a LIVE port stays green (sticky),
       // so transient slowness (e.g. /api/posts under heavy catch-up) doesn't flip it back.
-      if (!(await tcpOpen(sv.port))) {
+      // On devnet there's no local validator — the "Solana" row tracks the sync shim instead.
+      const port = sv.key === "solana" && solanaReaderPort ? solanaReaderPort : sv.port;
+      if (!(await tcpOpen(port))) {
         s[sv.key] = false;
         return;
       }
