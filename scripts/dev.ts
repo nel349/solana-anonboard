@@ -156,20 +156,18 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   // Provision the shared devnet program + a funded fee-payer, then export the resolved
   // values so every service (frontend, batcher, sync) targets devnet.
   process.stdout.write(`${c.yellow}→ Solana on devnet — provisioning (fund fee-payer + reuse the shared program)…${c.reset}\n`);
-  const { feePayer, deploySlot } = await provisionDevnet((m) =>
+  const { feePayer } = await provisionDevnet((m) =>
     process.stdout.write(`${c.dim}${m}${c.reset}\n`),
   );
   process.env.POST_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
   process.env.VITE_POST_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
   process.env.VITE_BATCHER_FEE_PAYER = feePayer;
   process.env.SOLANA_BATCHER_KEYPAIR = DEVNET_BATCHER_KEYPAIR;
-  process.env.SOLANA_START_SLOT = String(deploySlot);
-  // On devnet the SDK's Solana leg is off (it can't getBlock); the standalone
-  // solana-post-reader folds posts via getSignaturesForAddress+getTransaction. Point it at
-  // devnet + the shared program. Batcher/frontend/provision talk to devnet directly.
+  // On devnet the SDK's Solana leg is off (it can't getBlock); the standalone solana-post-reader
+  // lists posts via getProgramAccounts (current state — no start slot needed). Point it at devnet
+  // + the shared program. Batcher/frontend/provision talk to devnet directly.
   process.env.SOLANA_READER_UPSTREAM = rpc;
   process.env.SOLANA_READER_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
-  process.env.SOLANA_READER_START_SLOT = String(deploySlot);
   process.env.SOLANA_READER_PORT = String(SOLANA_READER_PORT);
   solanaReaderPort = SOLANA_READER_PORT;
   process.stdout.write(

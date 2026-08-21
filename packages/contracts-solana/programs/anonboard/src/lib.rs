@@ -29,7 +29,11 @@ use solana_program::{
     sysvar::Sysvar,
 };
 
-solana_program::declare_id!("248S7nsDgJ12oBQj3Kqvirn41DB7VuejUS8n9KoQam34");
+// Local program id (matches the committed local keypair, Cargo.toml, and program-id.ts). The
+// devnet deployment is a SEPARATE immutable program (see devnet.ts) injected via env — and this
+// program never uses crate::ID at runtime (all checks use the runtime program_id), so the id
+// here only labels the local build.
+solana_program::declare_id!("8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6");
 
 // Instruction discriminants (first data byte).
 pub const DISCRIMINANT_POST: u8 = 2;
@@ -139,6 +143,11 @@ fn handle_post<'a>(
     }
     // Validate UTF-8 up front (also what the log line needs).
     let body_str = core::str::from_utf8(body).map_err(|_| ProgramError::InvalidInstructionData)?;
+    // The dual-write log line is newline/pipe-delimited; reject control chars so a body can never
+    // forge a log record for any off-chain consumer (defense-in-depth — accounts are authoritative).
+    if body.iter().any(|&b| b == b'\n' || b == b'\r') {
+        return Err(ProgramError::InvalidInstructionData);
+    }
 
     // ── author counter: create on first post, then read the next index ──
     let (counter_key, counter_bump) =
@@ -158,9 +167,14 @@ fn handle_post<'a>(
         let mut cdata = counter.try_borrow_mut_data()?;
         cdata[0] = TAG_COUNTER;
         cdata[1..9].copy_from_slice(&0u64.to_le_bytes());
+    } else if counter.owner != program_id || counter.data_len() < COUNTER_SIZE {
+        return Err(ProgramError::InvalidAccountData);
     }
     let index = {
         let cdata = counter.try_borrow_data()?;
+        if cdata[0] != TAG_COUNTER {
+            return Err(ProgramError::InvalidAccountData);
+        }
         u64::from_le_bytes(cdata[1..9].try_into().unwrap())
     };
 
@@ -222,7 +236,7 @@ fn handle_close<'a>(
     }
     let (stored_author, stored_payer) = {
         let pdata = post.try_borrow_data()?;
-        if pdata.first().copied() != Some(TAG_POST) {
+        if pdata.len() < POST_SIZE || pdata.first().copied() != Some(TAG_POST) {
             return Err(ProgramError::InvalidAccountData);
         }
         (

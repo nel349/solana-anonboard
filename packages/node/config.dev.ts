@@ -14,8 +14,8 @@ const SOLANA_PROGRAM_ID = process.env.POST_PROGRAM_ID ?? POST_PROGRAM_ID;
 const SOLANA_START_SLOT = Number(process.env.SOLANA_START_SLOT ?? "0");
 // On devnet public RPC bans getBlock (the only method the SDK's Solana leg reads with), and a
 // deploy-slot replay grows unbounded as the chain ages. So on devnet the SDK's Solana leg is
-// dropped entirely and the standalone solana-post-reader folds posts via
-// getSignaturesForAddress+getTransaction instead. Local keeps the SDK's Solana leg unchanged.
+// dropped entirely and the standalone solana-post-reader lists posts via getProgramAccounts
+// (current state) instead. Local keeps the SDK's Solana leg unchanged.
 const DEVNET = process.env.SOLANA_NETWORK === "devnet";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";

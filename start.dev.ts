@@ -34,14 +34,14 @@ if (solanaValidatorIdx >= 0) {
 }
 
 // On devnet the SDK's Solana leg is disabled (it can't getBlock on public devnet); a standalone
-// reader folds posts from devnet via getSignaturesForAddress+getTransaction (O(our posts),
+// reader lists posts from devnet via getProgramAccounts (O(our posts),
 // bounded) into the same posts table, with its own pglite connection + a health port.
 const SOLANA_READER_PORT = 8898;
 const readerProcesses = DEVNET
   ? [
       {
         name: "solana-post-reader",
-        description: "Devnet Solana post reader (folds posts via getSignaturesForAddress)",
+        description: "Devnet Solana post reader (lists posts via getProgramAccounts)",
         cwd: root,
         args: ["run", "packages/node/solana-post-reader.ts"],
         env: { PGLITE: "true" },
