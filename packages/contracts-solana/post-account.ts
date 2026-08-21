@@ -3,6 +3,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { Buffer } from "buffer";
 import { TAG_POST, POST_LAYOUT, MAX_BODY } from "./program-id.ts";
+import { u64leNumber } from "./u64.ts";
 
 export type PostAccount = {
   author: string;
@@ -21,8 +22,8 @@ export function decodePostAccount(data: Uint8Array): PostAccount | null {
   return {
     author: new PublicKey(buf.subarray(POST_LAYOUT.author, POST_LAYOUT.author + 32)).toBase58(),
     payer: new PublicKey(buf.subarray(POST_LAYOUT.payer, POST_LAYOUT.payer + 32)).toBase58(),
-    slot: Number(buf.readBigUInt64LE(POST_LAYOUT.slot)),
-    index: Number(buf.readBigUInt64LE(POST_LAYOUT.index)),
+    slot: u64leNumber(data, POST_LAYOUT.slot),
+    index: u64leNumber(data, POST_LAYOUT.index),
     body: buf.subarray(POST_LAYOUT.body, POST_LAYOUT.body + bodyLen).toString("utf8"),
   };
 }

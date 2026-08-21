@@ -7,6 +7,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { Buffer } from "buffer";
+import { u64leBytes, u64leNumber } from "./u64.ts";
 import {
   POST_PROGRAM_ID,
   DISCRIMINANT_POST,
@@ -14,12 +15,6 @@ import {
   POST_SEED,
   COUNTER_SEED,
 } from "./program-id.ts";
-
-function u64le(n: number): Buffer {
-  const b = Buffer.alloc(8);
-  b.writeBigUInt64LE(BigInt(n));
-  return b;
-}
 
 // The author's post-counter PDA (holds their next index).
 export function counterPda(author: PublicKey, programId: string = POST_PROGRAM_ID): PublicKey {
@@ -36,7 +31,7 @@ export function postPda(
   programId: string = POST_PROGRAM_ID,
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from(POST_SEED), author.toBuffer(), u64le(index)],
+    [Buffer.from(POST_SEED), author.toBuffer(), u64leBytes(index)],
     new PublicKey(programId),
   )[0];
 }
@@ -49,7 +44,7 @@ export async function nextPostIndex(
 ): Promise<number> {
   const info = await conn.getAccountInfo(counterPda(author, programId));
   if (!info || info.data.length < 9) return 0;
-  return Number(Buffer.from(info.data).readBigUInt64LE(1));
+  return u64leNumber(info.data, 1);
 }
 
 // Post: the author signs (free); the sponsor (payer) funds the fee + the post/counter rent.
