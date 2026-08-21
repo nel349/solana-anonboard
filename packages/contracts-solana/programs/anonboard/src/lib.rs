@@ -29,7 +29,7 @@ use solana_program::{
     sysvar::Sysvar,
 };
 
-solana_program::declare_id!("8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6");
+solana_program::declare_id!("248S7nsDgJ12oBQj3Kqvirn41DB7VuejUS8n9KoQam34");
 
 // Instruction discriminants (first data byte).
 pub const DISCRIMINANT_POST: u8 = 2;
