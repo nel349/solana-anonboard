@@ -18,6 +18,7 @@ import path from "node:path";
 import { DEV_PORTS } from "./dev-ports.ts";
 import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
+import { DEVNET_RPC } from "./provision-devnet.ts";
 import readline from "node:readline/promises";
 
 const root = path.resolve(import.meta.dirname!, "..");
@@ -117,7 +118,6 @@ await maybePromptRedeploy();
 // hosted, so posts persist across restarts. SOLANA_NETWORK env pre-empts the prompt;
 // non-interactive shells default to local. Resolves the RPC and exports it to the
 // orchestrator (SOLANA_RPC_URL for node services, VITE_SOLANA_RPC_URL for the frontend).
-const DEVNET_RPC = "https://api.devnet.solana.com";
 const LOCAL_RPC = "http://localhost:8899";
 async function maybePromptSolanaNetwork(): Promise<void> {
   let choice = (process.env.SOLANA_NETWORK ?? "").toLowerCase();
