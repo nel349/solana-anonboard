@@ -13,8 +13,7 @@ test-ledger/
 # rustfmt backups
 **/*.rs.bk
 
-# Keypairs. `keypair/anonboard-program.json` IS committed on purpose so the
-# program ID stays deterministic for local dev — its secret is public and it
-# must never own anything on a real network. Any OTHER keypair stays out.
+# Keypairs — NEVER committed. The local validator loads the program by its public
+# address (POST_PROGRAM_ID) via --bpf-program, so no program private key is needed locally;
+# devnet uses its own (gitignored) key.
 keypair/*.json
-!keypair/anonboard-program.json

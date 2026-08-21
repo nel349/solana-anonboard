@@ -16,6 +16,7 @@
 // reused across every join to save time; each join takes fresh keys.
 
 import path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
   buildWalletAndWaitForFunds,
@@ -249,9 +250,21 @@ export async function getSolBalance(pubkey: string): Promise<number> {
 // batcher sponsor, the poster only signs its own authority, and the batcher
 // co-signs + submits. wait-effectstream-processed blocks until the sync has
 // folded the post, so the DB reflects it once this resolves.
+// The local batcher/sponsor pubkey: read from the (generated-on-first-run) keypair, falling back
+// to the committed dev constant — keeps the test correct whether the key is generated or preexisting.
+function localBatcherFeePayer(): PublicKey {
+  const p =
+    process.env.SOLANA_BATCHER_KEYPAIR ??
+    path.resolve(import.meta.dirname!, "../../batcher/keypair/batcher-wallet.json");
+  if (existsSync(p)) {
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(p, "utf8")))).publicKey;
+  }
+  return new PublicKey(DEV_BATCHER_FEE_PAYER);
+}
+
 export async function sendPost(poster: Keypair, body: string): Promise<void> {
   const conn = new Connection(DEV_RPC_URL, "confirmed");
-  const sponsor = new PublicKey(DEV_BATCHER_FEE_PAYER);
+  const sponsor = localBatcherFeePayer();
   const { blockhash } = await conn.getLatestBlockhash("confirmed");
 
   const tx = new Transaction();

@@ -1,5 +1,4 @@
-# Keypairs. batcher-wallet.json IS committed on purpose: it's the dev/localnet
-# gasless fee-payer, its secret is public, and it must NEVER be funded on a real
-# network. Any OTHER keypair stays out.
+# Keypairs — NEVER committed. The local batcher/sponsor key is generated on first run
+# (scripts/dev.ts) and reused; each clone gets its own. Its pubkey is injected at runtime
+# (VITE_BATCHER_FEE_PAYER / SOLANA_BATCHER_KEYPAIR), so no committed key is needed.
 keypair/*.json
-!keypair/batcher-wallet.json

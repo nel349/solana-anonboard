@@ -21,6 +21,7 @@ import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
 import { DEVNET_RPC, DEVNET_BATCHER_KEYPAIR, provisionDevnet } from "./provision-devnet.ts";
 import { SOLANA_DEVNET_PROGRAM_ID } from "../packages/contracts-solana/devnet.ts";
 import readline from "node:readline/promises";
+import { Keypair } from "@solana/web3.js";
 
 const root = path.resolve(import.meta.dirname!, "..");
 const LOG = path.join(root, ".dev.log");
@@ -124,6 +125,20 @@ await maybePromptRedeploy();
 const SOLANA_READER_PORT = 8898;
 let solanaReaderPort: number | null = null; // set when devnet is chosen; drives the checklist row
 const LOCAL_RPC = "http://localhost:8899";
+// Local batcher/sponsor keypair — generated on first run, NOT committed (each clone gets its
+// own). An existing key is reused, so a working local setup is left untouched.
+const LOCAL_BATCHER_KEYPAIR = path.join(root, "packages/batcher/keypair/batcher-wallet.json");
+function loadOrCreateLocalBatcher(): string {
+  if (!fs.existsSync(LOCAL_BATCHER_KEYPAIR)) {
+    fs.mkdirSync(path.dirname(LOCAL_BATCHER_KEYPAIR), { recursive: true });
+    const kp = Keypair.generate();
+    fs.writeFileSync(LOCAL_BATCHER_KEYPAIR, JSON.stringify(Array.from(kp.secretKey)), { mode: 0o600 });
+    return kp.publicKey.toBase58();
+  }
+  return Keypair.fromSecretKey(
+    Uint8Array.from(JSON.parse(fs.readFileSync(LOCAL_BATCHER_KEYPAIR, "utf8"))),
+  ).publicKey.toBase58();
+}
 async function maybePromptSolanaNetwork(): Promise<void> {
   let choice = (process.env.SOLANA_NETWORK ?? "").toLowerCase();
   if (choice !== "local" && choice !== "devnet" && isTTY) {
@@ -149,7 +164,14 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   process.env.VITE_SOLANA_RPC_URL = rpc;
 
   if (choice !== "devnet") {
-    process.stdout.write(`${c.dim}→ Solana on the local validator (posts reset each run).${c.reset}\n`);
+    // Generate a local batcher/sponsor keypair on first run (not committed) and inject its pubkey
+    // so the frontend + gasless path use it — mirrors the devnet path. An existing key is reused.
+    const feePayer = loadOrCreateLocalBatcher();
+    process.env.SOLANA_BATCHER_KEYPAIR = LOCAL_BATCHER_KEYPAIR;
+    process.env.VITE_BATCHER_FEE_PAYER = feePayer;
+    process.stdout.write(
+      `${c.dim}→ Solana on the local validator (posts reset each run). batcher ${feePayer.slice(0, 8)}…${c.reset}\n`,
+    );
     return;
   }
 
