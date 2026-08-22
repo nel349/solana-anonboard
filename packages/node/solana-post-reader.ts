@@ -1,10 +1,10 @@
-// Devnet Solana post reader — account-storage version. On devnet the SDK's Solana leg is off
-// (it can't getBlock), so this lists the program's post accounts with getProgramAccounts
-// (served on devnet), decodes them, and folds them into the posts table with the SAME arbiter
-// rule as state-machine.ts's solana-post STF (accepted = author holds a Midnight badge), plus
-// an idempotent backfill for the cross-chain race. Reading state means no history scan and no
-// start slot — a restart just re-lists the accounts. Runs as its own process with its own
-// pglite connection. Config via SOLANA_READER_* env.
+// Solana post reader — account-storage version; runs on both local and devnet. The SDK's
+// Solana sync leg is gone (it needs getBlock, banned on public devnet), so this is the SOLE
+// post-ingestion path: it lists the program's post accounts with getProgramAccounts (served on
+// devnet), decodes them, and folds them into the posts table with the arbiter rule
+// (accepted = author holds a Midnight badge), plus an idempotent backfill for the cross-chain
+// race. Reading state means no history scan and no start slot — a restart just re-lists the
+// accounts. Runs as its own process with its own pglite connection. Config via SOLANA_READER_* env.
 
 import { Buffer } from "node:buffer";
 import { getConnection, runPreparedQuery } from "@effectstream/db";

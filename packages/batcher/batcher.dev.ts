@@ -35,9 +35,9 @@ const solana = createSolanaAdapter({
   batcherKeypairPath: BATCHER_KEYPAIR,
   syncProtocolName: SYNC_PROTOCOL_NAME,
   targetProgramId: process.env.POST_PROGRAM_ID ?? POST_PROGRAM_ID,
-  // anonboard's post program writes no account, so the sponsor is never an
-  // instruction account and this flag has no effect here. Left at the template
-  // default; per solana-adapter.ts a pure-log program would normally set false.
+  // Account-storage model: the sponsor (payer) IS an instruction account — it funds each
+  // post PDA's rent (see createPostInstruction, payer is a signer+writable key). This MUST
+  // stay true; setting it false strips the sponsor from the accounts and breaks every post.
   allowSponsorAsInstructionAccount: true,
 });
 

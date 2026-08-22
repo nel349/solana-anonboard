@@ -18,7 +18,7 @@ export interface SolanaAdapterEnv {
   syncProtocolName: string;
   targetProgramId: string;
   maxBatchSize?: number;
-  /** Set for programs where the sponsor funds PDA rent; off for pure log/transfer programs (anonboard's post is the latter). */
+  /** Set true for programs where the sponsor funds PDA rent — anonboard's post program does (the sponsor pays each post account's rent), so it must be true; off only for pure log/transfer programs. */
   allowSponsorAsInstructionAccount?: boolean;
 }
 
