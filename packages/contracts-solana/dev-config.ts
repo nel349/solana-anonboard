@@ -1,8 +1,9 @@
 /**
  * Local dev constants shared by frontend, batcher, and tests.
  *
- * `BATCHER_FEE_PAYER` must match the pubkey in
- * `packages/batcher/keypair/batcher-wallet.json`.
+ * `DEV_BATCHER_FEE_PAYER` is a last-resort fallback only. The real sponsor pubkey comes
+ * from the generated (gitignored) keypair via `VITE_BATCHER_FEE_PAYER` / the keypair file;
+ * this constant is the old committed key, kept so callers have a value when no env is set.
  */
 export const DEV_RPC_URL = "http://localhost:8899";
 export const DEV_BATCHER_URL = "http://localhost:3334";

@@ -23,13 +23,14 @@ export interface SolanaAdapterEnv {
 }
 
 /**
- * Fee-payer keypairs committed to this template for local dev convenience.
- * Their secret keys are public — anyone with the repo has them — so they must
- * never fund anything on a real network. Keyed by public key so a copy under a
- * different filename is still caught.
+ * Publicly-known dev fee-payer keys — must never fund a real network. The batcher
+ * keypair is now generated per clone (gitignored), but this key was committed to the
+ * template in git history, so anyone can recover it; it stays on the denylist so an old
+ * checkout can't accidentally sponsor on a non-loopback RPC. Keyed by public key so a
+ * copy under a different filename is still caught.
  */
 const PUBLIC_DEV_KEYPAIRS = new Set([
-  "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW", // keypair/batcher-wallet.json
+  "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW", // historical committed batcher key (git history)
 ]);
 
 function isLoopbackRpc(rpcUrl: string): boolean {
