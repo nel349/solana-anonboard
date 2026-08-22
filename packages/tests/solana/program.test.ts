@@ -119,12 +119,12 @@ describe.skipIf(!CAN_RUN)("anonboard program (local validator)", () => {
     expect(decodePostAccount((await conn.getAccountInfo(postPda(author.publicKey, 0)))!.data)!.body).toBe("posted despite grief");
   });
 
-  it("rejects a body containing control characters (log-injection guard)", async () => {
+  it("stores a multi-line body verbatim (accounts need no log-injection guard)", async () => {
     const author = Keypair.generate();
-    await expect(
-      sendAndConfirmTransaction(conn, new Transaction().add(
-        createPostInstruction(author.publicKey, payer.publicKey, 0, "evil\nANONBOARD_POST|x|1|y")), [payer, author]),
-    ).rejects.toThrow();
+    const body = "line one\nline two\twith tab";
+    await sendAndConfirmTransaction(conn, new Transaction().add(
+      createPostInstruction(author.publicKey, payer.publicKey, 0, body)), [payer, author]);
+    expect(decodePostAccount((await conn.getAccountInfo(postPda(author.publicKey, 0)))!.data)!.body).toBe(body);
   });
 
   it("rejects a post where the author did not sign", async () => {

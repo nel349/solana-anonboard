@@ -11,15 +11,16 @@
 // you where the app is. Ctrl-C still tears the whole stack down. Raw logs live in
 // .dev.log (follow with `bun run dev:logs`).
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
-import { DEV_PORTS } from "./dev-ports.ts";
+import { DEV_PORTS, freePorts } from "./dev-ports.ts";
 import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
 import { DEVNET_RPC, DEVNET_BATCHER_KEYPAIR, provisionDevnet } from "./provision-devnet.ts";
 import { SOLANA_DEVNET_PROGRAM_ID } from "../packages/contracts-solana/devnet.ts";
+import { POST_PROGRAM_ID } from "../packages/contracts-solana/program-id.ts";
 import readline from "node:readline/promises";
 import { Keypair } from "@solana/web3.js";
 
@@ -169,6 +170,11 @@ async function maybePromptSolanaNetwork(): Promise<void> {
     const feePayer = loadOrCreateLocalBatcher();
     process.env.SOLANA_BATCHER_KEYPAIR = LOCAL_BATCHER_KEYPAIR;
     process.env.VITE_BATCHER_FEE_PAYER = feePayer;
+    // The post reader runs on local too, reading the local validator's program accounts.
+    process.env.SOLANA_READER_UPSTREAM = rpc;
+    process.env.SOLANA_READER_PROGRAM_ID = POST_PROGRAM_ID;
+    process.env.SOLANA_READER_PORT = String(SOLANA_READER_PORT);
+    solanaReaderPort = SOLANA_READER_PORT;
     process.stdout.write(
       `${c.dim}→ Solana on the local validator (posts reset each run). batcher ${feePayer.slice(0, 8)}…${c.reset}\n`,
     );
@@ -219,28 +225,16 @@ child.stdout.on("data", capture);
 child.stderr.on("data", capture);
 
 let stopping = false;
-function freePorts(): number {
-  let n = 0;
-  for (const port of DEV_PORTS) {
-    const r = spawnSync("lsof", ["-nP", `-tiTCP:${port}`, "-sTCP:LISTEN"], { encoding: "utf8" });
-    for (const pid of (r.stdout || "")
-      .split("\n")
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((x) => Number.isInteger(x) && x > 0 && x !== process.pid)) {
-      try { process.kill(pid, "SIGKILL"); n++; } catch { /* already gone */ }
-    }
-  }
-  return n;
-}
-// Ctrl-C always fully stops the stack — kill what we started, then force-free the
-// ports (reaps an attached localnet the orchestrator won't). Same in both modes.
+// Ctrl-C always fully stops the stack — kill what we started, then force-free the ports.
+// freePorts skips Docker-held ports, so an attached Docker localnet (and Docker itself)
+// is never torn down; a self-hosted native localnet still gets reaped. Same in both modes.
 function teardown() {
   if (stopping) return;
   stopping = true;
   process.stdout.write(`\n${c.dim}stopping the stack…${c.reset}\n`);
   if (child.exitCode === null) { try { child.kill("SIGTERM"); } catch { /* gone */ } }
   setTimeout(() => {
-    const n = freePorts();
+    const n = freePorts(DEV_PORTS);
     process.stdout.write(`${c.dim}stopped${n ? ` (freed ${n} leftover)` : ""}.${c.reset}\n`);
     process.exit(0);
   }, 1500);

@@ -9,7 +9,6 @@ export type Post = {
   body: string;
   accepted: boolean;
   reason: string;
-  block_height: number;
 };
 export type Optimistic = { body: string; ts: number };
 

@@ -90,6 +90,7 @@ async function warmup(): Promise<void> {
     // background — so the operator is ready as soon as dust is synced. Throws on timeout.
     log("syncing wallet — dust + unshielded (not waiting on the shielded scan)…");
     await syncAndWaitForFunds(wallet.wallet as never, { skipShielded: true });
+    log("wallet synced; loading compiled contract + building providers…");
     const zkConfigPath = path.resolve(
       import.meta.dirname!,
       "..",
@@ -113,6 +114,7 @@ async function warmup(): Promise<void> {
       zkConfigPath,
       wallet.unshieldedKeystore,
     );
+    log(`providers ready; finding deployed contract ${info.contractAddress.slice(0, 10)}… on-chain…`);
     const owner = (await findDeployedContract(providers as never, {
       contractAddress: info.contractAddress,
       compiledContract: compiled as never,

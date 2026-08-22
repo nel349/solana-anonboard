@@ -24,7 +24,7 @@
     "build:solana": "bun run --filter @solana-anonboard/contracts-solana build",
     "build:pgtypes": "bun run --filter @solana-anonboard/database pgtyped:update",
     "test": "bun run packages/tests/run-tests.ts",
-    "test:unit": "bun test packages/node packages/contracts-solana packages/database scripts/dev-render.test.ts packages/contracts-midnight/deployments.test.ts",
+    "test:unit": "bun test packages/node packages/contracts-solana packages/database scripts/dev-render.test.ts scripts/dev-ports.test.ts packages/contracts-midnight/deployments.test.ts packages/contracts-midnight/deploy-decision.test.ts",
     "test:contract": "bun test packages/contracts-midnight/contract-anonboard/test",
     "typecheck": "bun run scripts/typecheck.ts",
     "postinstall": "bun run scripts/dedupe-midnight-wasm.ts",

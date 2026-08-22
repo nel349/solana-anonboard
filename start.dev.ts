@@ -33,26 +33,25 @@ if (solanaValidatorIdx >= 0) {
   };
 }
 
-// On devnet the SDK's Solana leg is disabled (it can't getBlock on public devnet); a standalone
-// reader lists posts from devnet via getProgramAccounts (O(our posts),
-// bounded) into the same posts table, with its own pglite connection + a health port.
+// The SDK's Solana leg is gone entirely (it read via getBlock — banned on public devnet, and its
+// deploy-block replay grew unbounded). A standalone reader folds posts on BOTH local + devnet via
+// getProgramAccounts (current state, O(our posts), no history) into the posts table.
 const SOLANA_READER_PORT = 8898;
-const readerProcesses = DEVNET
-  ? [
-      {
-        name: "solana-post-reader",
-        description: "Devnet Solana post reader (lists posts via getProgramAccounts)",
-        cwd: root,
-        args: ["run", "packages/node/solana-post-reader.ts"],
-        env: { PGLITE: "true" },
-        waitToExit: false,
-        type: "system-dependency" as const,
-        link: `http://127.0.0.1:${SOLANA_READER_PORT}`,
-        stopProcessAtPort: [SOLANA_READER_PORT],
-        dependsOn: [DbNames.PGLITE_WAIT],
-      },
-    ]
-  : [];
+const readerProcesses = [
+  {
+    name: "solana-post-reader",
+    description: "Solana post reader (folds posts via getProgramAccounts; local + devnet)",
+    cwd: root,
+    args: ["run", "packages/node/solana-post-reader.ts"],
+    env: { PGLITE: "true" },
+    waitToExit: false,
+    type: "system-dependency" as const,
+    link: `http://127.0.0.1:${SOLANA_READER_PORT}`,
+    stopProcessAtPort: [SOLANA_READER_PORT],
+    // Local: reads the local validator (wait for it). Devnet: reads the hosted RPC (no validator).
+    dependsOn: [DbNames.PGLITE_WAIT, ...(DEVNET ? [] : [SolanaNames.SOLANA_VALIDATOR_WAIT])],
+  },
+];
 
 // Endpoints for the active Midnight network come from the single source of truth
 // (networks.ts). Export them as the MIDNIGHT_* overrides the vendored SDK reads, so
@@ -282,16 +281,12 @@ export default {
 
     {
       name: "sync",
-      description: "Anonboard sync node (Solana + Midnight)",
+      description: "Anonboard sync node (Midnight badges)",
       args: ["run", "packages/node/main.dev.ts"],
       waitToExit: false,
       type: "system-dependency",
       env: { PGLITE: "true", ...midnightEnv },
-      dependsOn: [
-        DbNames.PGLITE_WAIT,
-        ...(DEVNET ? [] : [SolanaNames.SOLANA_VALIDATOR_WAIT]),
-        ...midnightDeps,
-      ],
+      dependsOn: [DbNames.PGLITE_WAIT, ...midnightDeps],
     },
 
     // dependsOn deploy: reads the contract address + builds the owner wallet.

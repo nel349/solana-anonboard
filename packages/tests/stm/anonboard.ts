@@ -248,8 +248,10 @@ export async function getSolBalance(pubkey: string): Promise<number> {
 
 // Gasless post through the batcher. The poster holds ZERO SOL: feePayer is the
 // batcher sponsor, the poster only signs its own authority, and the batcher
-// co-signs + submits. wait-effectstream-processed blocks until the sync has
-// folded the post, so the DB reflects it once this resolves.
+// co-signs + submits. wait-receipt returns once the tx confirms on-chain; the
+// standalone solana-post-reader then folds the PDA account into the DB (~1s,
+// getProgramAccounts), which the caller's assertSQL polls for. The account model
+// has no EffectStream Solana sync, so wait-effectstream-processed would hang.
 // The local batcher/sponsor pubkey: read from the (generated-on-first-run) keypair, falling back
 // to the committed dev constant — keeps the test correct whether the key is generated or preexisting.
 function localBatcherFeePayer(): PublicKey {
@@ -294,7 +296,7 @@ export async function sendPost(poster: Keypair, body: string): Promise<void> {
         input: base64,
         timestamp: Date.now().toString(),
       },
-      confirmationLevel: "wait-effectstream-processed",
+      confirmationLevel: "wait-receipt",
     }),
   });
   if (!res.ok) {

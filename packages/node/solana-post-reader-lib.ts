@@ -9,7 +9,7 @@
 
 import { decodePostAccount } from "@solana-anonboard/contracts-solana";
 
-export type Post = { author: string; body: string; slot: number };
+export type Post = { author: string; body: string; slot: number; index: number };
 
 // Decode program accounts into posts, oldest-slot first (so DB insertion order → newest gets
 // the highest id → newest-first in getAllPosts). Non-post accounts (e.g. counters) decode to
@@ -18,7 +18,7 @@ export function postsFromAccounts(accounts: readonly { data: Uint8Array }[]): Po
   const out: Post[] = [];
   for (const a of accounts) {
     const p = decodePostAccount(a.data);
-    if (p) out.push({ author: p.author, body: p.body, slot: p.slot });
+    if (p) out.push({ author: p.author, body: p.body, slot: p.slot, index: p.index });
   }
-  return out.sort((a, b) => a.slot - b.slot || a.author.localeCompare(b.author));
+  return out.sort((a, b) => a.slot - b.slot || a.author.localeCompare(b.author) || a.index - b.index);
 }

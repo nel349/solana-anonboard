@@ -73,19 +73,17 @@ export interface IInsertPostParams {
   author: string;
   body: string;
   slot: number | string;
-  block_height: number;
+  post_index: number | string;
   accepted: boolean;
   reason: string;
 }
-// Idempotent: a re-delivered log (reorg / re-sync) must not create a duplicate
-// row. DO NOTHING preserves the existing row, including any backfilled accepted
-// status (see acceptPostsForAuthor). The conflict target is the uq_posts_identity
-// index (author, slot, md5(body)) — the body is hashed so an oversized post can't
-// blow the btree row limit and wedge the block (see migrations/001-anonboard.sql).
+// Idempotent: a re-fold of the same post must not create a duplicate row. DO NOTHING preserves
+// the existing row, including any backfilled accepted status (see acceptPostsForAuthor). The
+// conflict target is uq_posts_identity (author, post_index) — the on-chain primary key.
 export const insertPost = prepare<IInsertPostParams, void>(
-  `INSERT INTO posts (author, body, slot, block_height, accepted, reason)
-VALUES (:author!, :body!, :slot!, :block_height!, :accepted!, :reason!)
-ON CONFLICT (author, slot, md5(body)) DO NOTHING`,
+  `INSERT INTO posts (author, body, slot, post_index, accepted, reason)
+VALUES (:author!, :body!, :slot!, :post_index!, :accepted!, :reason!)
+ON CONFLICT (author, post_index) DO NOTHING`,
 );
 
 export interface IGetPostsResult {
@@ -93,12 +91,12 @@ export interface IGetPostsResult {
   author: string;
   body: string;
   slot: string;
-  block_height: number;
+  post_index: string;
   accepted: boolean;
   reason: string;
 }
 export const getAllPosts = prepare<Record<string, never>, IGetPostsResult>(
-  `SELECT id, author, body, slot, block_height, accepted, reason
+  `SELECT id, author, body, slot, post_index, accepted, reason
 FROM posts ORDER BY id DESC`,
 );
 

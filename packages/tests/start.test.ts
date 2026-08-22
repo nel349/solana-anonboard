@@ -4,6 +4,7 @@ import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite"
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { midnightPlan } from "../../localnet-preflight.ts";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const root = path.resolve(import.meta.dirname!, "../..");
 
@@ -132,6 +133,22 @@ export default {
       type: "system-dependency",
       stopProcessAtPort: [3334],
       dependsOn: ["airdrop-batcher"],
+    },
+    {
+      // Folds Solana posts (PDA accounts, getProgramAccounts) into the posts table — the
+      // account-storage replacement for the removed SDK Solana sync leg. Without it nothing
+      // ingests posts and the STM/API post assertions time out. Mirrors start.dev.ts.
+      name: "solana-post-reader",
+      description: "Solana post reader (folds posts via getProgramAccounts)",
+      args: ["run", "packages/node/solana-post-reader.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: {
+        PGLITE: "true",
+        SOLANA_READER_UPSTREAM: "http://localhost:8899",
+        SOLANA_READER_PROGRAM_ID: POST_PROGRAM_ID,
+      },
+      dependsOn: [DbNames.PGLITE_WAIT, SolanaNames.SOLANA_VALIDATOR_WAIT],
     },
     {
       name: "sync",

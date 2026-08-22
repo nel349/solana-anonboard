@@ -13,7 +13,7 @@
     "midnight-proof-server:wait": "bun ../../node_modules/.bin/wait-on tcp:6300",
     "midnight-indexer-proxy:wait": "bun ../../node_modules/.bin/wait-on tcp:${INDEXER_PROXY_PORT}",
     "midnight-contract:clean": "rm -rf midnight-level-db && rm -f contract.json contract-anonboard.undeployed.json",
-    "midnight-contract:deploy": "if [ -n \"$ANONBOARD_REDEPLOY\" ] || [ ! -f contract-anonboard.${MIDNIGHT_NETWORK_ID:-undeployed}.json ]; then bun run deploy.ts; fi",
+    "midnight-contract:deploy": "bun run ensure-deployed.ts",
     "midnight:reset": "rm -rf .midnight-data midnight-level-db && rm -f contract.json contract-anonboard.undeployed.json"
   },
   "dependencies": {

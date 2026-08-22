@@ -3,7 +3,7 @@
 // here silently looks like "nobody has a badge". Run: bun test (from this package).
 import { describe, it, expect } from "bun:test";
 import bs58 from "bs58";
-import { hexToBase58, parsePostLog, POST_LOG_PREFIX } from "../log-parse.ts";
+import { hexToBase58 } from "../log-parse.ts";
 
 describe("hexToBase58", () => {
   it("converts 32 bytes of hex to base58 that decodes back to the same bytes", () => {
@@ -40,51 +40,5 @@ describe("hexToBase58", () => {
   it("returns null for non-hex characters", () => {
     expect(hexToBase58("zz".repeat(32))).toBeNull();
     expect(hexToBase58("gg" + "00".repeat(31))).toBeNull();
-  });
-});
-
-describe("parsePostLog", () => {
-  const AUTHOR = bs58.encode(Uint8Array.from({ length: 32 }, (_, i) => i + 1));
-
-  it("parses a Solana-framed post log into exact author and body", () => {
-    const r = parsePostLog(`Program log: ${POST_LOG_PREFIX}|${AUTHOR}|42|hello world`);
-    expect(r).toEqual({ author: AUTHOR, body: "hello world" });
-  });
-
-  it("keeps '|' inside the body (only the first three fields are split)", () => {
-    const r = parsePostLog(`${POST_LOG_PREFIX}|${AUTHOR}|7|a|b|c`);
-    expect(r).toEqual({ author: AUTHOR, body: "a|b|c" });
-  });
-
-  it("parses a line without the 'Program log: ' framing", () => {
-    const r = parsePostLog(`${POST_LOG_PREFIX}|${AUTHOR}|7|hi`);
-    expect(r?.author).toBe(AUTHOR);
-    expect(r?.body).toBe("hi");
-  });
-
-  it("allows an empty body (four fields, last empty)", () => {
-    expect(parsePostLog(`${POST_LOG_PREFIX}|${AUTHOR}|7|`)).toEqual({
-      author: AUTHOR,
-      body: "",
-    });
-  });
-
-  it("returns null for a different program's log", () => {
-    expect(parsePostLog(`Program log: SOMETHING_ELSE|${AUTHOR}|7|hi`)).toBeNull();
-  });
-
-  it("returns null when the prefix isn't followed by a delimiter", () => {
-    // "ANONBOARD_POSTX|..." must NOT match the "ANONBOARD_POST|" prefix.
-    expect(parsePostLog(`${POST_LOG_PREFIX}X|${AUTHOR}|7|hi`)).toBeNull();
-  });
-
-  it("returns null when there are fewer than four fields", () => {
-    expect(parsePostLog(`${POST_LOG_PREFIX}|${AUTHOR}|7`)).toBeNull();
-    expect(parsePostLog(`${POST_LOG_PREFIX}|${AUTHOR}`)).toBeNull();
-  });
-
-  it("returns null for an unrelated log line", () => {
-    expect(parsePostLog("Program log: Instruction: Transfer")).toBeNull();
-    expect(parsePostLog("")).toBeNull();
   });
 });

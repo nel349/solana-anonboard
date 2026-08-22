@@ -79,7 +79,7 @@ async function fold(): Promise<void> {
           author: post.author,
           body: post.body,
           slot: String(post.slot),
-          block_height: 0, // no associated Midnight block; the reader sources this from Solana
+          post_index: post.index, // the on-chain per-author index — the DB identity
           accepted,
           reason: accepted ? REASON_BADGE_VERIFIED : REASON_NO_BADGE,
         },

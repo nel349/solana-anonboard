@@ -6,8 +6,8 @@
 //! Instructions:
 //!   - `Post(body)`  (disc 2): create the author's counter on first post, create the indexed
 //!     post PDA `["post", author, index]` (sponsor-funded), write the record, bump the
-//!     counter, AND emit `ANONBOARD_POST|author|slot|body` (dual-write, so the log reader
-//!     still works during the transition).
+//!     counter, and write the post record. The account is authoritative — posts are read back
+//!     with getAccountInfo / getProgramAccounts (no logs).
 //!   - `Close`       (disc 3): the author deletes one of their posts; the rent is refunded to
 //!     the ORIGINAL payer (the sponsor), never to the author — so a post can't drain the
 //!     sponsor. The counter is not decremented (indices are monotonic; a closed slot is a gap).
@@ -20,7 +20,6 @@ use solana_program::{
     clock::Clock,
     entrypoint,
     entrypoint::ProgramResult,
-    msg,
     program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -141,13 +140,8 @@ fn handle_post<'a>(
     if body.len() > MAX_BODY {
         return Err(ProgramError::InvalidInstructionData);
     }
-    // Validate UTF-8 up front (also what the log line needs).
-    let body_str = core::str::from_utf8(body).map_err(|_| ProgramError::InvalidInstructionData)?;
-    // The dual-write log line is newline/pipe-delimited; reject control chars so a body can never
-    // forge a log record for any off-chain consumer (defense-in-depth — accounts are authoritative).
-    if body.iter().any(|&b| b == b'\n' || b == b'\r') {
-        return Err(ProgramError::InvalidInstructionData);
-    }
+    // Validate UTF-8 (the account stores the body as bytes; keep it well-formed).
+    core::str::from_utf8(body).map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // ── author counter: create on first post, then read the next index ──
     let (counter_key, counter_bump) =
@@ -214,8 +208,6 @@ fn handle_post<'a>(
         cdata[1..9].copy_from_slice(&next.to_le_bytes());
     }
 
-    // ── dual-write: keep the log line so the log reader still works during transition ──
-    msg!("ANONBOARD_POST|{}|{}|{}", author.key, slot, body_str);
     Ok(())
 }
 

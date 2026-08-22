@@ -50,7 +50,11 @@ const config: BatcherConfig = {
     // Solana txs can't be merged, so maxBatchSize=1 — the queue gives retry, not batching.
     solana: { criteriaType: "size", maxBatchSize: 1 },
   },
-  confirmationLevel: "wait-effectstream-processed",
+  // Account-storage model: a post is confirmed by its on-chain tx receipt, then the
+  // standalone solana-post-reader folds the PDA account into the DB (getProgramAccounts).
+  // There is no EffectStream Solana sync leg, so wait-effectstream-processed would block
+  // forever on a SyncChains event nothing emits. wait-receipt is the correct default here.
+  confirmationLevel: "wait-receipt",
   enableHttpServer: true,
   enableEventSystem: true,
   port: PORT,

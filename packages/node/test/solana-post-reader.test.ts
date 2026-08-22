@@ -34,7 +34,7 @@ function encodeCounter(count: number): Uint8Array {
 describe("postsFromAccounts", () => {
   it("decodes a post account to the exact fields", () => {
     const posts = postsFromAccounts([{ data: encodePost(60, 0, "gm|with pipe ✅") }]);
-    expect(posts).toEqual([{ author: AUTHOR.toBase58(), body: "gm|with pipe ✅", slot: 60 }]);
+    expect(posts).toEqual([{ author: AUTHOR.toBase58(), body: "gm|with pipe ✅", slot: 60, index: 0 }]);
   });
 
   it("drops non-post accounts (counter + garbage), keeps only posts", () => {
