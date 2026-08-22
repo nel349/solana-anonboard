@@ -1,0 +1,41 @@
+diff --git a/core/batch-processor.ts b/core/batch-processor.ts
+index e4a9c6241e04a3625516bf14064ea3c6445bb211..fd0b8f9f3e9c60abe2c0a1fc1bb219a2421342fb 100644
+--- a/core/batch-processor.ts
++++ b/core/batch-processor.ts
+@@ -225,18 +225,24 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
+     // Individual callers will decide if they want to continue waiting for EffectStream
+     this.resolveInputCallbacks(selectedInputs, receipt);
+ 
+-    // Optional: Still trigger EffectStream processing check for event emission
+-    this.waitForEffectStreamProcessing(
+-      receipt,
+-      adapter,
+-      target,
+-      timeout,
+-    ).catch((error) => {
+-      console.error(
+-        `⚠️ Error waiting for EffectStream processing for target ${target}:`,
+-        error,
+-      );
+-    });
++    // Optional EffectStream-processed event emission. Opt-in: only run when a sync
++    // actually emits SyncChains for this target. Anonboard's account-storage model has
++    // no EffectStream Solana sync (posts are folded by the standalone reader), so leaving
++    // it on logs a benign but confusing "EffectStream processing validation failed" after
++    // a 60s timeout on every batch. Gate it behind BATCHER_WAIT_EFFECTSTREAM=1.
++    if (process.env.BATCHER_WAIT_EFFECTSTREAM === "1") {
++      this.waitForEffectStreamProcessing(
++        receipt,
++        adapter,
++        target,
++        timeout,
++      ).catch((error) => {
++        console.error(
++          `⚠️ Error waiting for EffectStream processing for target ${target}:`,
++          error,
++        );
++      });
++    }
+   }
+ 
+   private async waitForEffectStreamProcessing(

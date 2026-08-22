@@ -45,5 +45,8 @@
   },
   "effectstream": {
     "default": "start.dev.ts"
+  },
+  "patchedDependencies": {
+    "@effectstream/batcher-sdk@0.102.0": "patches/@effectstream%2Fbatcher-sdk@0.102.0.patch"
   }
 }
