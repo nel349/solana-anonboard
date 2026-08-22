@@ -18,7 +18,9 @@ export function decodePostAccount(data: Uint8Array): PostAccount | null {
   // Post accounts are exactly POST_LAYOUT.body + MAX_BODY bytes; anything shorter isn't a post.
   if (data.length < POST_LAYOUT.body + MAX_BODY || data[0] !== TAG_POST) return null;
   const buf = Buffer.from(data);
-  const bodyLen = buf.readUInt16LE(POST_LAYOUT.bodyLen);
+  // The program guarantees bodyLen <= MAX_BODY, but clamp defensively so a malformed
+  // account can never make the body slice read past the fixed MAX_BODY window.
+  const bodyLen = Math.min(buf.readUInt16LE(POST_LAYOUT.bodyLen), MAX_BODY);
   return {
     author: new PublicKey(buf.subarray(POST_LAYOUT.author, POST_LAYOUT.author + 32)).toBase58(),
     payer: new PublicKey(buf.subarray(POST_LAYOUT.payer, POST_LAYOUT.payer + 32)).toBase58(),

@@ -21,8 +21,12 @@ import {
  */
 const PORT = Number(process.env.BATCHER_PORT ?? "3334");
 const RPC_URL = process.env.SOLANA_RPC_URL ?? DEV_RPC_URL;
+// Labels the batcher's EffectStream-processed check only, which the account model gates off
+// (posts confirm by tx receipt + the reader's getProgramAccounts fold, not a Solana sync).
+// Inert at runtime; kept because the adapter config requires the field. Not the removed
+// parallelSolanaRPC sync protocol — that leg no longer exists.
 const SYNC_PROTOCOL_NAME =
-  process.env.SOLANA_SYNC_PROTOCOL_NAME ?? "parallelSolanaRPC";
+  process.env.SOLANA_SYNC_PROTOCOL_NAME ?? "solana-accounts";
 const NAMESPACE = process.env.BATCHER_NAMESPACE ?? DEV_NAMESPACE;
 const POLLING_INTERVAL_MS = Number(process.env.BATCHER_POLLING_MS ?? "1000");
 
