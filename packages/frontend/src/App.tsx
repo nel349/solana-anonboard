@@ -58,7 +58,7 @@ export function App() {
       <div className="stage">
         <div className="card console">
           <BadgeHeader badgePk={badgePk} member={member} isMember={feed.isMember} />
-          <Composer draft={composer.draft} onDraft={composer.setDraft} onPost={composer.post} busy={busy} />
+          <Composer draft={composer.draft} onDraft={composer.setDraft} onPost={composer.post} busy={busy || composer.posting} />
           <StatusLine status={status} />
           {!member && feed.isMember !== null && (
             <JoinRow
