@@ -8,7 +8,13 @@ Every accepted post is provably from a member on the roster, and no post traces 
 
 ## Quickstart
 
-You need [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them.
+You need [Bun](https://bun.sh) ≥ 1.3 and the **Compact compiler** (the contract is compiled at boot and the artifact is not committed):
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+```
+
+No Docker required; the localnet runs native vendored binaries. The Solana and Midnight node/indexer/proof toolchains are vendored, and the **first run compiles the Rust Solana program + the Compact circuit and downloads the toolchains, so expect a few minutes.**
 
 ```bash
 bun install
@@ -21,7 +27,7 @@ bun run dev
 http://localhost:5173
 ```
 
-Connect Lace or 1AM, click **Join**, then post. A post from a badge holder is accepted; a post from a stranger is rejected — both are shown, so you can see the check working.
+Browser wallets (Lace, 1AM) do **not** support the local `undeployed` network, so for the local demo run the headless loop instead: `bun run scripts/demo.ts` (it joins, posts, and shows the accept/reject check). To drive the browser UI, run against a hosted net (`bun run dev:preview`) with a supported wallet — see [Networks & accounts](docs/networks-and-accounts.md#wallet-connect). Either way, a post from a badge holder is accepted and a post from a stranger is rejected; both are shown, so you can see the check working.
 
 | Service | URL |
 |---|---|
@@ -41,7 +47,7 @@ Manage the running stack from any terminal: `bun run dev:status`, `bun run dev:l
 
 ## Verified against
 
-The contract compiles and the loop runs end-to-end (verified 2026-08-17 — E2E suite green, 20/20) against:
+The contract compiles and the loop runs end-to-end (verified 2026-08-22 — E2E suite green, 24/24) against:
 
 | Component | Version |
 |---|---|
@@ -50,6 +56,7 @@ The contract compiles and the loop runs end-to-end (verified 2026-08-17 — E2E 
 | `@midnight-ntwrk/ledger-v8` | 8.1.0 |
 | `@midnight-ntwrk/midnight-js-*` | 4.1.1 |
 | EffectStream | 0.102.0 |
+| `midnight-wallet-cli` (`mn`) | 0.5.0 (needs `dust export`) |
 
 ## Scope and limitations
 
@@ -57,7 +64,7 @@ This is an example on a local dev chain, not a production build:
 
 - **Dev-only trust:** a single funded operator wallet, permissive CORS, and no auth. The membership secret lives in the browser's `localStorage` for the demo — a real build must encrypt it.
 - **Open roster:** the ZK guarantees a post is from *a roster member* — but roster admission is not gated in the demo. The operator's `/register` (and owner-only `add_to_roster`) admit anyone who asks, so one person can mint many badges. The privacy holds regardless; "membership" is only as meaningful as the admission policy a real build puts in front of `add_to_roster`.
-- **Committed dev keypairs:** the batcher fee-payer (`packages/batcher/keypair/batcher-wallet.json`), the deterministic program id (`packages/contracts-solana/keypair/anonboard-program.json`), and the fixed owner key (`packages/contracts-midnight/owner-key.ts`) are committed on purpose so the localnet demo runs out of the box. Their secrets are public — they must **never** be funded or deployed on a real network. `deploy` and the operator refuse to run with the committed owner key on any network other than `undeployed`.
+- **Dev keys:** the Solana batcher fee-payer and program keypairs are **generated per clone** (gitignored, not committed), so each clone gets its own. The fixed Midnight owner key (`packages/contracts-midnight/owner-key.ts`) is committed on purpose so the localnet demo runs out of the box; its secret is public and must **never** be funded or deployed on a real network. `deploy` and the operator refuse to run with the committed owner key on any network other than `undeployed`.
 - **Cross-chain ordering:** Midnight's sync catches up from block 1 while Solana is already current, so a post can arrive before its badge. The arbiter holds it and backfills to accepted once the badge lands (the `reason` string records which path a post took).
 - **Local validator retention:** the vendored Solana validator can't cap its ledger size, so a long-running localnet eventually prunes blocks the sync still needs and wedges. A fresh `bun run dev` resets both to slot 0.
 

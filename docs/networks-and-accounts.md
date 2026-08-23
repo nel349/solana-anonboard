@@ -1,12 +1,12 @@
 # Networks & accounts
 
-anonboard runs against one of three Midnight networks. **Solana and the proof server are always local** — only Midnight's node and indexer move to a hosted net.
+anonboard picks a **Midnight** network and, independently, a **Solana** network. The proof server is always local. The Solana side defaults to a local validator but can run on **devnet** for persistent posts (see [Solana: local vs devnet](#solana-local-vs-devnet)).
 
-| Network | Midnight node / indexer | Proof server | Solana | Deploy pays with | Roster owner |
-|---|---|---|---|---|---|
-| `undeployed` (default) | local (`bun run dev`) | local | local | the chain's genesis wallet (auto-funded) | committed dev key |
-| `preview` | hosted TestNet | local | local | **your funded wallet** | **your owner key** |
-| `preprod` | hosted TestNet | local | local | **your funded wallet** | **your owner key** |
+| Midnight network | Node / indexer | Proof server | Deploy pays with | Roster owner |
+|---|---|---|---|---|
+| `undeployed` (default) | local (`bun run dev`) | local | the chain's genesis wallet (auto-funded) | committed dev key |
+| `preview` | hosted TestNet | local | **your funded wallet** | **your owner key** |
+| `preprod` | hosted TestNet | local | **your funded wallet** | **your owner key** |
 
 ## The two accounts
 
@@ -48,11 +48,38 @@ MIDNIGHT_WALLET_SEED=<64-hex funded wallet seed>
 MIDNIGHT_OWNER_KEY=<64-hex private owner key>
 ```
 
+The wallet seed comes from `mn generate` (see below). The owner key is any 32 random bytes: `openssl rand -hex 32`.
+
 ### Funding the payer wallet on a hosted net
 
-1. Get the wallet's unshielded address for the net.
-2. Request NIGHT from the faucet: [preview](https://midnight-tmnight-preview.nethermind.dev/) · [preprod](https://midnight-tmnight-preprod.nethermind.dev/).
-3. Register dust so the wallet can pay fees (e.g. via the `mn` CLI: `mn dust register`).
+Use the `mn` CLI (installed with the repo). Keep the seed in `MN_SEED` so it stays off the process list.
+
+```bash
+mn generate                                          # prints a fresh 64-hex seed (or reuse your own)
+MN_SEED=<64-hex seed> mn address --network preview   # prints the unshielded address to fund
+```
+
+1. Put that seed in `MIDNIGHT_WALLET_SEED` (in `.env.preview` / `.env.preprod`).
+2. Request NIGHT from the faucet: [preview](https://midnight-tmnight-preview.nethermind.dev/) · [preprod](https://midnight-tmnight-preprod.nethermind.dev/) — send it to the address above.
+3. Register dust so the wallet can pay fees:
+
+```bash
+MN_SEED=<64-hex seed> mn dust register --network preview
+```
+
+## Solana: local vs devnet
+
+The Solana side is independent of the Midnight network. By default it runs a local `solana-test-validator` that **resets each `bun run dev`** (posts are ephemeral). Set `SOLANA_NETWORK=devnet` (or pick "devnet" at the startup prompt) to use hosted **devnet** instead, so **posts persist across restarts** like badges do.
+
+- On devnet the boot faucet-funds the batcher fee-payer and reuses a **shared, immutable post program** — a cloner needs no `solana` CLI and no keypair.
+- The program was deployed once (immutably) by the maintainer; its id and deploy slot live in [`packages/contracts-solana/devnet.ts`](../packages/contracts-solana/devnet.ts). Only that first-ever deploy needs the `solana` CLI (see `scripts/provision-devnet.ts`).
+
+## Wallet connect
+
+The browser join/prove flow needs a Midnight dapp-connector (v4) wallet.
+
+- **`undeployed` (local): not supported.** Lace does not support the local network ([lace#2254](https://github.com/input-output-hk/lace/issues/2254)), and 1AM breaks switching between local and hosted (upstream, fix pending). For a local demo use the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`).
+- **`preview` / `preprod`: use a supported v4 wallet** pointed at that net. If it shows a stale "Network ID mismatch", disconnect the dApp and reconnect to re-bind.
 
 ## Endpoints
 

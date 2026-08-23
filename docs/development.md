@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.3. The Solana and Midnight toolchains are vendored — the first run downloads them.
+- [Bun](https://bun.sh) ≥ 1.3. No Docker required (the localnet runs native vendored binaries). The Solana and Midnight node/indexer/proof toolchains are vendored; the **first run compiles the Rust Solana program + the Compact circuit and downloads the toolchains, so expect a few minutes.**
+- The **Compact compiler** (NOT vendored, and the compiled `managed/` artifact is not committed, so a fresh clone must have it). Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh`. The boot step compiles with toolchain `+0.31.0`, which the installed `compact` version manager fetches on first use.
+- `midnight-wallet-cli` (`mn`) **≥ 0.5.0**, installed automatically from the pinned dependency. The deploy and operator prime dust via `mn dust export`, which exists only in 0.5.0+; on 0.4.x it is missing and the flow falls back to the slow SDK cold-sync that never completes on preprod. Check with `mn --version`.
 - The stack binds fixed localhost ports; they must be free and bindable: `5432` (PGLite), `8899`/`9900` (Solana), `9999` (sync API), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
 
 ## Running the stack
@@ -85,4 +87,4 @@ bun run test:contract # the Compact contract simulator (incl. anonymity/bypass c
 - **The deploy sits at "Waiting to receive tokens…" for a minute or two.** Normal on a cold chain: the deploy wallet holds NIGHT but needs dust to accrue before it can pay. It resolves on its own.
 - **A hosted (preview/preprod) run fails at the payment step.** The payer wallet isn't funded on that net — see [networks & accounts](networks-and-accounts.md#funding-the-payer-wallet-on-a-hosted-net).
 - **The local Solana validator wedges after ~45 min.** The vendored validator can't cap its ledger size and eventually prunes blocks the sync still needs. A fresh `bun run dev` resets both chains to slot 0.
-- **Lace fails to connect with "Network ID mismatch" on `undeployed`.** Every `bun run dev` boots a *fresh* local chain (new genesis), so a Lace wallet still bound to the previous localnet no longer matches the one the node reports. Disconnect the dApp in Lace and reconnect — or just reopen the browser tab — to re-bind to the new chain, then **Connect** works. (This only affects `undeployed`; hosted nets have a stable chain.)
+- **A browser wallet won't connect on `undeployed`.** There is no browser-wallet path on the local network: Lace does not support `undeployed` at all ([lace#2254](https://github.com/input-output-hk/lace/issues/2254)), and 1AM breaks when you switch between `undeployed` and a hosted net (upstream, fix pending). For a local demo use the headless flow (`bun run scripts/demo.ts` or `scripts/blind-join.ts`); to use the browser UI, run against a hosted net (`bun run dev:preview`) with a supported wallet. On a hosted net, if the wallet reports a stale "Network ID mismatch", disconnect the dApp and reconnect (or reopen the tab) to re-bind.

@@ -7,12 +7,13 @@
       "dependencies": {
         "@effectstream/orchestrator": "0.102.0",
         "@electric-sql/pglite": "^0.3.14",
+        "midnight-wallet-cli": "^0.5.0",
         "wait-on": "8.0.3",
       },
       "devDependencies": {
         "@types/node": "^22",
         "bun-types": "^1.3.14",
-        "midnight-wallet-cli": "^0.4.1",
+        "midnight-wallet-cli": "^0.5.0",
       },
     },
     "packages/batcher": {
@@ -1760,7 +1761,7 @@
 
     "micro-ftch": ["micro-ftch@0.3.1", "", {}, "sha512-/0LLxhzP0tfiR5hcQebtudP56gUurs2CLkGarnCiB/OqEyUFQ6U3paQi/tgLv0hBJYt2rnr9MNpxz4fiiugstg=="],
 
-    "midnight-wallet-cli": ["midnight-wallet-cli@0.4.1", "", { "dependencies": { "@midnight-ntwrk/compact-runtime": "^0.16.0", "@midnight-ntwrk/dapp-connector-api": "^4.0.1", "@midnight-ntwrk/ledger-v8": "^8.1.0", "@midnight-ntwrk/midnight-js-contracts": "^4.1.1", "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-level-private-state-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-network-id": "^4.1.1", "@midnight-ntwrk/midnight-js-node-zk-config-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-types": "^4.1.1", "@midnight-ntwrk/midnight-js-utils": "^4.1.1", "@midnight-ntwrk/wallet-sdk-abstractions": "^2.0.0", "@midnight-ntwrk/wallet-sdk-address-format": "^3.1.0", "@midnight-ntwrk/wallet-sdk-capabilities": "^3.2.0", "@midnight-ntwrk/wallet-sdk-dust-wallet": "^4.0.0", "@midnight-ntwrk/wallet-sdk-facade": "^4.0.0", "@midnight-ntwrk/wallet-sdk-hd": "^3.0.1", "@midnight-ntwrk/wallet-sdk-shielded": "^3.0.0", "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^3.0.0", "@modelcontextprotocol/sdk": "^1.27.1", "@scure/bip39": "^2.0.1", "rxjs": "^7.8.1", "ws": "^8.19.0" }, "bin": { "midnight": "dist/wallet.js", "mn": "dist/wallet.js", "midnight-wallet-cli": "dist/wallet.js", "midnight-wallet-mcp": "dist/mcp-server.js" } }, "sha512-IAG+bPwgDPRDBT2fZrfzxTZ2yAl3Xjqdt4JNq3pJ7eUafAbYtE9tk9AgcaNYttM4BL/zChaYsIfE12WpoWsbqQ=="],
+    "midnight-wallet-cli": ["midnight-wallet-cli@0.5.0", "", { "dependencies": { "@midnight-ntwrk/compact-runtime": "^0.16.0", "@midnight-ntwrk/dapp-connector-api": "^4.0.1", "@midnight-ntwrk/ledger-v8": "^8.1.0", "@midnight-ntwrk/midnight-js-contracts": "^4.1.1", "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-level-private-state-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-network-id": "^4.1.1", "@midnight-ntwrk/midnight-js-node-zk-config-provider": "^4.1.1", "@midnight-ntwrk/midnight-js-types": "^4.1.1", "@midnight-ntwrk/midnight-js-utils": "^4.1.1", "@midnight-ntwrk/wallet-sdk-abstractions": "^2.0.0", "@midnight-ntwrk/wallet-sdk-address-format": "^3.1.0", "@midnight-ntwrk/wallet-sdk-capabilities": "^3.2.0", "@midnight-ntwrk/wallet-sdk-dust-wallet": "^4.0.0", "@midnight-ntwrk/wallet-sdk-facade": "^4.0.0", "@midnight-ntwrk/wallet-sdk-hd": "^3.0.1", "@midnight-ntwrk/wallet-sdk-shielded": "^3.0.0", "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^3.0.0", "@modelcontextprotocol/sdk": "^1.27.1", "@scure/bip39": "^2.0.1", "rxjs": "^7.8.1", "ws": "^8.19.0" }, "bin": { "midnight": "dist/wallet.js", "mn": "dist/wallet.js", "midnight-wallet-cli": "dist/wallet.js", "midnight-wallet-mcp": "dist/mcp-server.js" } }, "sha512-SHlMq2hhLxe7cDa2pXMA5UY9Fu9rEmHpe1WAt4zEmN/g1h5NacyhDZYhLmDjq+BCYX0eAdOjIc8XqN7rksqsxg=="],
 
     "miller-rabin": ["miller-rabin@4.0.1", "", { "dependencies": { "bn.js": "^4.0.0", "brorand": "^1.0.1" }, "bin": { "miller-rabin": "bin/miller-rabin" } }, "sha512-115fLhvZVqWwHPbClyntxEVfVDfl9DLLTuJvq3g2O/Oxi8AiNouAHvDSzHS0viUJc+V5vm3eq91Xwqn9dp4jRA=="],
 

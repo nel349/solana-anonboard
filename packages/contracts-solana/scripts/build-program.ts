@@ -4,6 +4,9 @@
 import path from "node:path";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
+// The default export is the bin-wrapper that downloads the Agave toolchain (which
+// contains cargo-build-sbf). Used to break the fresh-clone bootstrap deadlock below.
+import solanaNodeBin from "@effectstream/solana-node";
 
 const PKG_DIR = import.meta.dirname!;
 const ROOT = path.resolve(PKG_DIR, "..");
@@ -28,7 +31,28 @@ function resolveCargoBuildSbf(): string {
   return "cargo-build-sbf";
 }
 
-function main() {
+const VENDORED_SBF = path.join(
+  ROOT,
+  "node_modules/@effectstream/solana-node/vendor/bin/cargo-build-sbf",
+);
+
+// Fresh-clone bootstrap. The vendored toolchain (which contains cargo-build-sbf) is
+// downloaded lazily by the validator's run() — but the validator refuses to start
+// without this .so, and this build needs cargo-build-sbf: a circular deadlock that
+// stops a fresh clone. Trigger the same download here so the build is self-sufficient.
+// No-op once the toolchain is present, or when a global cargo-build-sbf is on PATH.
+async function ensureCargoBuildSbf(): Promise<void> {
+  if (fs.existsSync(VENDORED_SBF)) return;
+  const hasGlobal =
+    spawnSync("cargo-build-sbf", ["--version"], { stdio: "ignore" }).status === 0;
+  if (hasGlobal) return;
+  console.log(
+    "[contracts-solana] first build: downloading the vendored Solana toolchain…",
+  );
+  await solanaNodeBin.download();
+}
+
+async function main() {
   if (!fs.existsSync(PROGRAM_MANIFEST)) {
     console.error(
       `[contracts-solana] Missing program manifest at ${PROGRAM_MANIFEST}`,
@@ -37,6 +61,7 @@ function main() {
   }
 
   fs.mkdirSync(BUILD_DIR, { recursive: true });
+  await ensureCargoBuildSbf();
 
   const bin = resolveCargoBuildSbf();
   // v1.52 is the first platform-tools whose cargo (1.85+) supports edition2024
@@ -95,4 +120,7 @@ function main() {
   console.log(`[contracts-solana] Built ${path.relative(ROOT, OUT_SO)}`);
 }
 
-main();
+main().catch((e: unknown) => {
+  console.error(`[contracts-solana] build failed: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+});
