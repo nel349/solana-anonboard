@@ -8,7 +8,7 @@ Every accepted post is provably from a member on the roster, and no post traces 
 
 ## Quickstart
 
-You need [Bun](https://bun.sh) ≥ 1.3, **Rust** (`rustup` — `cargo-build-sbf` drives it to build the Solana program), and the **Compact compiler** (the contract is compiled at boot and the artifact is not committed):
+You need [Bun](https://bun.sh) ≥ 1.3, **Rust** (`rustup` — `cargo-build-sbf` drives it to build the Solana program), a **C toolchain** (macOS: `xcode-select --install`; Debian/Ubuntu: `apt install build-essential` — Rust links host crates with the system `cc`), and the **Compact compiler** (the contract is compiled at boot and the artifact is not committed):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh                                             # Rust
