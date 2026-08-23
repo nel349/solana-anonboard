@@ -3,6 +3,7 @@
 ## Prerequisites
 
 - [Bun](https://bun.sh) ≥ 1.3. No Docker required (the localnet runs native vendored binaries). The Solana and Midnight node/indexer/proof toolchains are vendored; the **first run compiles the Rust Solana program + the Compact circuit and downloads the toolchains, so expect a few minutes.**
+- **Rust** (`rustup` + `cargo`), install: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`. The vendored `cargo-build-sbf` downloads its own SBF platform-tools, but it drives the host `cargo`/`rustup` (for `cargo metadata` and toolchain linking), so a fresh clone without Rust fails the Solana build with `failed to start 'cargo metadata'`.
 - The **Compact compiler** (NOT vendored, and the compiled `managed/` artifact is not committed, so a fresh clone must have it). Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh`. The boot step compiles with toolchain `+0.31.0`, which the installed `compact` version manager fetches on first use.
 - `midnight-wallet-cli` (`mn`) **≥ 0.5.0**, installed automatically from the pinned dependency. The deploy and operator prime dust via `mn dust export`, which exists only in 0.5.0+; on 0.4.x it is missing and the flow falls back to the slow SDK cold-sync that never completes on preprod. Check with `mn --version`.
 - The stack binds fixed localhost ports; they must be free and bindable: `5432` (PGLite), `8899`/`9900` (Solana), `9999` (sync API), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
@@ -33,7 +34,7 @@ It **holds the terminal** like any dev server; **Ctrl-C** stops the whole stack 
 | `bun run dev:logs` | Follow the raw logs (they stream to `.dev.log`). |
 | `bun run dev:status` | Show every service, its PID, ports, and links — works from any terminal. |
 | `bun run dev:stop` | Stop everything and free the ports (reaps a localnet the orchestrator would otherwise leave). |
-| `bun run dev:raw` | The plain orchestrator output, without the checklist wrapper. |
+| `bun run dev:raw` | The plain orchestrator output, without the checklist wrapper. Assumes a prior `bun run dev` (the `dev` wrapper generates the local batcher keypair; the raw orchestrator does not). |
 
 To wipe the local chain and start clean:
 

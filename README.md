@@ -8,13 +8,14 @@ Every accepted post is provably from a member on the roster, and no post traces 
 
 ## Quickstart
 
-You need [Bun](https://bun.sh) ≥ 1.3 and the **Compact compiler** (the contract is compiled at boot and the artifact is not committed):
+You need [Bun](https://bun.sh) ≥ 1.3, **Rust** (`rustup` — `cargo-build-sbf` drives it to build the Solana program), and the **Compact compiler** (the contract is compiled at boot and the artifact is not committed):
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh                                             # Rust
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh   # Compact
 ```
 
-No Docker required; the localnet runs native vendored binaries. The Solana and Midnight node/indexer/proof toolchains are vendored, and the **first run compiles the Rust Solana program + the Compact circuit and downloads the toolchains, so expect a few minutes.**
+No Docker required; the localnet runs native vendored binaries. The vendored Solana build toolchain (`cargo-build-sbf`) and the Midnight node/indexer/proof binaries download on the **first run**, which also compiles the Rust Solana program + the Compact circuit — so expect a few minutes.
 
 ```bash
 bun install

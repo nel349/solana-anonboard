@@ -14,27 +14,19 @@ const PROGRAM_MANIFEST = path.join(ROOT, "programs", "anonboard", "Cargo.toml");
 const BUILD_DIR = path.join(ROOT, "build");
 const OUT_SO = path.join(BUILD_DIR, "anonboard.so");
 
-function resolveCargoBuildSbf(): string {
-  const candidates = [
-    path.join(
-      ROOT,
-      "node_modules/@effectstream/solana-node/vendor/bin/cargo-build-sbf",
-    ),
-    path.join(
-      process.cwd(),
-      "node_modules/@effectstream/solana-node/vendor/bin/cargo-build-sbf",
-    ),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return "cargo-build-sbf";
-}
-
+// cargo-build-sbf ships in the same vendor/bin as solana-test-validator. Derive its path
+// from the RESOLVED @effectstream/solana-node module (solanaNodeBin.path() points at that
+// validator) rather than guessing package-local node_modules — the package is hoisted to
+// the repo-root node_modules under bun workspaces, so a package-local guess misses both the
+// module and the just-downloaded binary.
 const VENDORED_SBF = path.join(
-  ROOT,
-  "node_modules/@effectstream/solana-node/vendor/bin/cargo-build-sbf",
+  path.dirname(solanaNodeBin.path()),
+  "cargo-build-sbf",
 );
+
+function resolveCargoBuildSbf(): string {
+  return fs.existsSync(VENDORED_SBF) ? VENDORED_SBF : "cargo-build-sbf";
+}
 
 // Fresh-clone bootstrap. The vendored toolchain (which contains cargo-build-sbf) is
 // downloaded lazily by the validator's run() — but the validator refuses to start
