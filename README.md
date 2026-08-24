@@ -68,7 +68,7 @@ The contract compiles and the loop runs end-to-end (verified 2026-08-22 — E2E 
 | `@midnight-ntwrk/ledger-v8` | 8.1.0 |
 | `@midnight-ntwrk/midnight-js-*` | 4.1.1 |
 | EffectStream | 0.102.0 |
-| `midnight-wallet-cli` (`mn`) | 0.5.1 (needs `dust export`) |
+| `midnight-wallet-cli` (`mn`) | 0.5.0 (the 24/24 baseline; repo pins `^0.5.0`, now 0.5.1 — needs `dust export`) |
 
 ## Scope and limitations
 
