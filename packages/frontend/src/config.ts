@@ -43,6 +43,16 @@ export const COST_PER_POST_SOL = COST_PER_POST_LAMPORTS / LAMPORTS_PER_SOL;
 export const NETWORK_ID =
   (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string | undefined) || "undeployed";
 
+// The local `mn serve` DApp-connector endpoint (WebSocket JSON-RPC). Offered as a
+// wallet option alongside browser wallets: its wallet syncs dust the fast way, so it
+// works where Lace's dust sync can't (undeployed has no browser wallet at all; and on
+// preprod Lace balances against stale dust). Start it with `mn serve --network <net>`.
+// Override with VITE_MN_SERVE_URL; set it empty to hide the option.
+export const MN_SERVE_URL =
+  import.meta.env.VITE_MN_SERVE_URL === undefined
+    ? "ws://localhost:9932"
+    : (import.meta.env.VITE_MN_SERVE_URL as string);
+
 // The deployed address is written per-network as contract-anonboard.<net>.json on every
 // deploy. Glob-import them (eager, so HMR picks up a redeploy) and select this network's.
 const contractAddresses = import.meta.glob<{ contractAddress: string }>(

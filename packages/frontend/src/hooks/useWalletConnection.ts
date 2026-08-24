@@ -3,11 +3,14 @@ import { useState } from "react";
 import {
   detectMidnightWallets,
   connectMidnightWallet,
+  connectMnServe,
+  mnServeWallet,
+  MN_SERVE_KEY,
   type ConnectedWallet,
   type DetectedWallet,
 } from "../midnight/wallet.ts";
 import { loadOrCreateSecretForWallet } from "../session.ts";
-import { NETWORK_ID } from "../config.ts";
+import { NETWORK_ID, MN_SERVE_URL } from "../config.ts";
 import type { SetStatus } from "./useAppStatus.ts";
 
 export type WalletConnection = {
@@ -30,6 +33,9 @@ export function useWalletConnection(setStatus: SetStatus): WalletConnection {
   // Detect wallets: none → prompt to install; one → connect it; many → show a picker.
   function connect(): void {
     const found = detectMidnightWallets();
+    // Always offer the local mn wallet when configured — it works where a browser
+    // wallet can't (undeployed; or paying a join on preprod, where Lace's dust lags).
+    if (MN_SERVE_URL) found.push(mnServeWallet());
     if (found.length === 0) {
       setStatus({ msg: "No Midnight wallet found. Install Lace or 1AM and reload.", kind: "err" });
       return;
@@ -46,7 +52,9 @@ export function useWalletConnection(setStatus: SetStatus): WalletConnection {
     setBusy(true);
     try {
       setStatus({ msg: `Connecting ${picked.name}…`, kind: "info" });
-      const w = await connectMidnightWallet(picked.key, NETWORK_ID);
+      const w = picked.key === MN_SERVE_KEY
+        ? await connectMnServe(MN_SERVE_URL, NETWORK_ID)
+        : await connectMidnightWallet(picked.key, NETWORK_ID);
       const addrs = await w.getShieldedAddresses();
       setSecret(loadOrCreateSecretForWallet(addrs.shieldedCoinPublicKey));
       setWallet(w);

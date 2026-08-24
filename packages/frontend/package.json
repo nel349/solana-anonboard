@@ -10,7 +10,6 @@
     "copy-zk": "bun run scripts/copy-zk-assets.ts"
   },
   "dependencies": {
-    "@solana-anonboard/contracts-midnight": "workspace:*",
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/compact-runtime": "0.16.0",
     "@midnight-ntwrk/ledger-v8": "8.1.0",
@@ -22,9 +21,11 @@
     "@midnight-ntwrk/midnight-js-utils": "4.1.1",
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.2",
+    "@solana-anonboard/contracts-midnight": "workspace:*",
     "@solana-anonboard/contracts-solana": "workspace:*",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0",
+    "midnight-wallet-connector": "^0.0.5",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

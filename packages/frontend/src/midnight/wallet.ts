@@ -1,4 +1,5 @@
 // Wallets inject window.midnight[<key>]: { rdns, name, icon, apiVersion, connect(networkId) }.
+import { createWalletClient } from "midnight-wallet-connector";
 
 export type DetectedWallet = {
   key: string; // the window.midnight key
@@ -90,4 +91,31 @@ export async function connectMidnightWallet(
     );
   }
   return api;
+}
+
+// ── Local mn CLI wallet (mn serve) ──
+// A synthetic picker entry: it is NOT a window.midnight provider — connecting opens a
+// WebSocket to `mn serve` — but it rides the same picker so users choose it like any
+// wallet. Its wallet has current dust, so it can pay a join where Lace can't.
+export const MN_SERVE_KEY = "mn-serve";
+
+export function mnServeWallet(): DetectedWallet {
+  return { key: MN_SERVE_KEY, name: "mn CLI wallet (local)", icon: "", rdns: "cli.midnight.serve", apiVersion: "4.x" };
+}
+
+// anonboard uses the lowercase abstractions form; the connector wants the NetworkId enum name.
+const MN_NETWORK_ID: Record<string, string> = { undeployed: "Undeployed", preprod: "PreProd", preview: "Preview" };
+
+export async function connectMnServe(url: string, networkId: string): Promise<ConnectedWallet> {
+  const mapped = MN_NETWORK_ID[networkId.toLowerCase()] ?? networkId;
+  try {
+    const client = await createWalletClient({ url, networkId: mapped });
+    // The connector implements the full ConnectedAPI (same surface as Lace); our
+    // ConnectedWallet is a hand-rolled subset, so bridge it structurally.
+    return client as unknown as ConnectedWallet;
+  } catch (e) {
+    throw new Error(
+      `couldn't reach mn serve at ${url} — start it with \`mn serve --network ${networkId}\` (${e instanceof Error ? e.message : String(e)})`,
+    );
+  }
 }
