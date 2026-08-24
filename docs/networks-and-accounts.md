@@ -78,7 +78,7 @@ The Solana side is independent of the Midnight network. By default it runs a loc
 
 The browser join/prove flow needs a Midnight dapp-connector (v4) wallet — or the **mn CLI wallet** ([Using the mn CLI wallet](mn-wallet.md)), which speaks the same connector API over `mn serve`.
 
-- **`undeployed` (local): no browser wallet.** Lace does not support the local network ([lace#2254](https://github.com/input-output-hk/lace/issues/2254)), and 1AM breaks switching between local and hosted (upstream, fix pending). Connect the [mn CLI wallet](mn-wallet.md), or use the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`).
+- **`undeployed` (local): browser wallet connect has open issues** (tracked in [#1](https://github.com/nel349/solana-anonboard/issues/1); underlying causes include Lace's [lace#2254](https://github.com/input-output-hk/lace/issues/2254) and a 1AM local/hosted switch bug). Use the [mn CLI wallet](mn-wallet.md) as the reliable path, or the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`).
 - **`preview` / `preprod`: a supported v4 wallet** pointed at that net (if it shows a stale "Network ID mismatch", disconnect and reconnect to re-bind) — **or** the [mn CLI wallet](mn-wallet.md), which is the reliable path on **preprod**, where a browser wallet's dust sync lags the large chain and the Join gets rejected.
 
 ## Endpoints

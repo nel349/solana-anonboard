@@ -35,8 +35,8 @@ When the checklist finishes, open **http://localhost:5173**. You can read the bo
 
 **To Join and post as a member you need a wallet — and which network you're on decides how:**
 
-- **`bun run dev` — local (`undeployed`):** browser wallets (Lace, 1AM) don't support the local chain, so connect the **[mn CLI wallet](docs/mn-wallet.md)**, or run the headless demo: `bun run scripts/demo.ts`.
-- **`bun run dev:preview` / `bun run dev:preprod` — hosted TestNet:** use a supported v4 browser wallet — or, on **preprod** (where a browser wallet's dust sync lags the large chain and the Join fails), the **[mn CLI wallet](docs/mn-wallet.md)**. Hosted nets also need a funded wallet + owner key — see **[Networks & accounts](docs/networks-and-accounts.md)**.
+- **`bun run dev` — local (`undeployed`):** browser wallet connect currently has open issues here ([#1](https://github.com/nel349/solana-anonboard/issues/1)), so use the **[mn CLI wallet](docs/mn-wallet.md)** as the reliable path — or run the headless demo: `bun run scripts/demo.ts`.
+- **`bun run dev:preview` / `bun run dev:preprod` — hosted TestNet:** use a v4 browser wallet, or the **[mn CLI wallet](docs/mn-wallet.md)** — the reliable path on **preprod**, where a browser wallet's dust sync lags the large chain and the Join fails. Hosted nets also need a funded wallet + owner key — see **[Networks & accounts](docs/networks-and-accounts.md)**.
 
 Either way the check is the same: a badge holder's post is marked **member**, a stranger's **not a member**, and both appear on the board.
 
@@ -59,7 +59,7 @@ Manage a running stack from any terminal: `bun run dev:status`, `bun run dev:log
 
 ## Verified against
 
-The contract compiles and the loop runs end-to-end (verified 2026-08-22 — E2E suite green, 24/24) against:
+The contract compiles and the loop runs end-to-end (verified 2026-08-24 — E2E suite green, 24/24, on mn 0.5.1) against:
 
 | Component | Version |
 |---|---|
@@ -68,7 +68,7 @@ The contract compiles and the loop runs end-to-end (verified 2026-08-22 — E2E 
 | `@midnight-ntwrk/ledger-v8` | 8.1.0 |
 | `@midnight-ntwrk/midnight-js-*` | 4.1.1 |
 | EffectStream | 0.102.0 |
-| `midnight-wallet-cli` (`mn`) | 0.5.0 (the 24/24 baseline; repo pins `^0.5.0`, now 0.5.1 — needs `dust export`) |
+| `midnight-wallet-cli` (`mn`) | 0.5.1 (needs `dust export`) |
 
 ## Scope and limitations
 

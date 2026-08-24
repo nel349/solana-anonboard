@@ -3,8 +3,8 @@
 anonboard's browser Join needs a Midnight wallet to prove membership and **pay the Midnight
 fee (dust)**. Two environments make that hard:
 
-- **`undeployed` (local):** browser wallets (Lace/1AM) don't support it at all — there's no
-  browser-wallet path.
+- **`undeployed` (local):** browser wallet connect currently has open issues here
+  ([#1](https://github.com/nel349/solana-anonboard/issues/1)) — no reliable browser path yet.
 - **`preprod`:** the chain's dust history is huge (~1.4M events); a browser wallet's built-in
   dust sync lags, so it balances the Join against **stale dust** and the node rejects it.
 
