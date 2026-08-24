@@ -106,10 +106,27 @@ export function mnServeWallet(): DetectedWallet {
 // anonboard uses the lowercase abstractions form; the connector wants the NetworkId enum name.
 const MN_NETWORK_ID: Record<string, string> = { undeployed: "Undeployed", preprod: "PreProd", preview: "Preview" };
 
-export async function connectMnServe(url: string, networkId: string): Promise<ConnectedWallet> {
+export type MnServeHooks = {
+  // Fired when mn serve begins waiting for terminal approval on a write op (unless
+  // it was started with --approve-all), so the UI can tell the user to go approve.
+  onApprovalPending?: (method: string) => void;
+  // Fired if the WebSocket to mn serve drops, so the app can reset the connection.
+  onDisconnect?: () => void;
+};
+
+export async function connectMnServe(
+  url: string,
+  networkId: string,
+  hooks?: MnServeHooks,
+): Promise<ConnectedWallet> {
   const mapped = MN_NETWORK_ID[networkId.toLowerCase()] ?? networkId;
   try {
-    const client = await createWalletClient({ url, networkId: mapped });
+    const client = await createWalletClient({
+      url,
+      networkId: mapped,
+      onApprovalPending: hooks?.onApprovalPending,
+    });
+    if (hooks?.onDisconnect) client.onDisconnect(hooks.onDisconnect);
     // The connector implements the full ConnectedAPI (same surface as Lace); our
     // ConnectedWallet is a hand-rolled subset, so bridge it structurally.
     return client as unknown as ConnectedWallet;

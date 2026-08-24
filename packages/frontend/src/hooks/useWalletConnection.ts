@@ -53,7 +53,15 @@ export function useWalletConnection(setStatus: SetStatus): WalletConnection {
     try {
       setStatus({ msg: `Connecting ${picked.name}…`, kind: "info" });
       const w = picked.key === MN_SERVE_KEY
-        ? await connectMnServe(MN_SERVE_URL, NETWORK_ID)
+        ? await connectMnServe(MN_SERVE_URL, NETWORK_ID, {
+            onApprovalPending: (method) =>
+              setStatus({ msg: `Approve "${method}" in the mn serve terminal…`, kind: "info" }),
+            onDisconnect: () => {
+              setWallet(null);
+              setWalletName("");
+              setStatus({ msg: "mn wallet disconnected — reconnect to continue.", kind: "err" });
+            },
+          })
         : await connectMidnightWallet(picked.key, NETWORK_ID);
       const addrs = await w.getShieldedAddresses();
       setSecret(loadOrCreateSecretForWallet(addrs.shieldedCoinPublicKey));
