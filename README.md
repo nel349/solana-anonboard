@@ -47,6 +47,7 @@ Either way the check is the same: a badge holder's post is marked **member**, a 
 | Batcher (fee-payer) | http://localhost:3334 |
 | Operator | http://localhost:3335 |
 | Midnight node / indexer / proof server | :9944 · :8088 · :6300 |
+| mn CLI wallet (optional, `mn serve`) | ws://localhost:9932 — see [Using the mn CLI wallet](docs/mn-wallet.md) |
 
 Manage a running stack from any terminal: `bun run dev:status`, `bun run dev:logs`, `bun run dev:stop`. Full workflow and troubleshooting in **[Development](docs/development.md)**.
 

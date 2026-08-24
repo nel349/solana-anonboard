@@ -15,6 +15,7 @@ browser wallet can't. anonboard offers it in the connect dialog as **"mn CLI wal
 ## Prerequisites
 
 - `mn` (midnight-wallet-cli) **≥ 0.5** — `npm install -g midnight-wallet-cli`, then `mn --version`.
+  (`mn` prints a wall of `@polkadot/util has multiple versions` dedup warnings to stderr before its output — these are benign and exit 0; ignore them.)
 - A wallet **funded on the target network** (steps below).
 
 ## Undeployed (local demo)
