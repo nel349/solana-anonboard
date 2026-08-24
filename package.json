@@ -34,7 +34,7 @@
     "@electric-sql/pglite": "^0.3.14",
     "@effectstream/orchestrator": "0.102.0",
     "wait-on": "8.0.3",
-    "midnight-wallet-cli": "^0.5.0"
+    "midnight-wallet-cli": "^0.5.1"
   },
   "devDependencies": {
     "@types/node": "^22",
