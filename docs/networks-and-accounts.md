@@ -76,10 +76,10 @@ The Solana side is independent of the Midnight network. By default it runs a loc
 
 ## Wallet connect
 
-The browser join/prove flow needs a Midnight dapp-connector (v4) wallet.
+The browser join/prove flow needs a Midnight dapp-connector (v4) wallet — or the **mn CLI wallet** ([Using the mn CLI wallet](mn-wallet.md)), which speaks the same connector API over `mn serve`.
 
-- **`undeployed` (local): not supported.** Lace does not support the local network ([lace#2254](https://github.com/input-output-hk/lace/issues/2254)), and 1AM breaks switching between local and hosted (upstream, fix pending). For a local demo use the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`).
-- **`preview` / `preprod`: use a supported v4 wallet** pointed at that net. If it shows a stale "Network ID mismatch", disconnect the dApp and reconnect to re-bind.
+- **`undeployed` (local): no browser wallet.** Lace does not support the local network ([lace#2254](https://github.com/input-output-hk/lace/issues/2254)), and 1AM breaks switching between local and hosted (upstream, fix pending). Connect the [mn CLI wallet](mn-wallet.md), or use the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`).
+- **`preview` / `preprod`: a supported v4 wallet** pointed at that net (if it shows a stale "Network ID mismatch", disconnect and reconnect to re-bind) — **or** the [mn CLI wallet](mn-wallet.md), which is the reliable path on **preprod**, where a browser wallet's dust sync lags the large chain and the Join gets rejected.
 
 ## Endpoints
 
