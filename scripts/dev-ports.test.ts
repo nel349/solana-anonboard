@@ -26,7 +26,7 @@ describe("isProtectedCommand (regression: never SIGKILL Docker's backend on a sh
   });
 
   test("does not protect anonboard's own native processes (they must still be reaped)", () => {
-    for (const cmd of ["npm-midnight-node", "npm-midnight-indexer", "solana-test-validator", "bun", "node", "lsof"]) {
+    for (const cmd of ["solana-test-validator", "bun", "node", "lsof"]) {
       expect(isProtectedCommand(cmd)).toBe(false);
     }
   });

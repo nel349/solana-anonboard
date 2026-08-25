@@ -16,6 +16,7 @@ import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { DEV_PORTS, freePorts } from "./dev-ports.ts";
+import { shouldTearDownLocalnet, tearDownLocalnet } from "./localnet-teardown.ts";
 import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
 import { DEVNET_RPC, DEVNET_BATCHER_KEYPAIR, provisionDevnet } from "./provision-devnet.ts";
@@ -225,9 +226,11 @@ child.stdout.on("data", capture);
 child.stderr.on("data", capture);
 
 let stopping = false;
-// Ctrl-C always fully stops the stack — kill what we started, then force-free the ports.
-// freePorts skips Docker-held ports, so an attached Docker localnet (and Docker itself)
-// is never torn down; a self-hosted native localnet still gets reaped. Same in both modes.
+// Ctrl-C always fully stops the stack — kill what we started, force-free anonboard's
+// own ports (freePorts skips Docker-held ports so it never nukes containers), then tear
+// down the Docker localnet so the next `bun run dev` starts from a fresh chain + deploy.
+// The localnet teardown is skipped on hosted runs and when a localnet is managed
+// elsewhere (MIDNIGHT_LOCALNET=attach) — see shouldTearDownLocalnet.
 function teardown() {
   if (stopping) return;
   stopping = true;
@@ -236,6 +239,7 @@ function teardown() {
   setTimeout(() => {
     const n = freePorts(DEV_PORTS);
     process.stdout.write(`${c.dim}stopped${n ? ` (freed ${n} leftover)` : ""}.${c.reset}\n`);
+    if (shouldTearDownLocalnet()) tearDownLocalnet();
     process.exit(0);
   }, 1500);
 }

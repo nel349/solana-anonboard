@@ -1,11 +1,11 @@
-// ATTACH-mode fund step — best-effort, for the `undeployed` localnet only.
+// Best-effort fund step — for the `undeployed` localnet only (mn's Docker localnet).
 //
 // On a standard `undeployed` localnet the anonboard deploy wallet *is* the
 // genesis wallet, so it's already funded and this is a no-op (verified: deploy
-// succeeds against an attached localnet with no funding). For a non-standard
-// chain we attempt an idempotent top-up via `mn` (midnight-wallet-cli), but we
-// NEVER block the attach path — if the wallet is truly unfunded the deploy
-// surfaces that itself with a clear message.
+// succeeds against the localnet with no funding). For a non-standard chain we
+// attempt an idempotent top-up via `mn` (midnight-wallet-cli), but we NEVER block
+// boot — if the wallet is truly unfunded the deploy surfaces that itself with a
+// clear message.
 //
 // On a HOSTED net (preview/preprod) this does not apply: the deploy wallet is
 // funded via the faucet, and `mn airdrop` only works against a local genesis
@@ -54,7 +54,7 @@ function main(): void {
     process.exit(0);
   }
 
-  console.log("[midnight-fund] attach mode — ensuring the deploy wallet has funds (best-effort)…");
+  console.log("[midnight-fund] ensuring the deploy wallet has funds (best-effort)…");
 
   if (spawnSync(MN, ["--version"], { encoding: "utf8" }).status !== 0) {
     console.log("[midnight-fund] `mn` not available — skipping top-up. Deploy will report if funds are missing.");

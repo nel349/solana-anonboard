@@ -17,10 +17,10 @@ packages/frontend/public/anonboard/
 **/midnight-level-db-deploy/
 midnight-level-db/
 
-# Persistent localnet chain data (Midnight node base-path + indexer SQLite).
-# Kept across restarts so a funded/dust-registered wallet + the deployed
-# contract survive. Wipe with `bun run midnight:reset` for a clean chain.
-# NOTE: dev-spec.json (the funded genesis) is COMMITTED — do not ignore it.
+# Legacy native-localnet chain data (Midnight node base-path + indexer SQLite).
+# The localnet is now mn's Docker localnet — its chain state lives in Docker
+# volumes and is wiped by `mn localnet down` (run on every stop). Kept ignored
+# so stray data from an older native checkout is never committed.
 .midnight-data/
 
 # Runtime / dev artifacts

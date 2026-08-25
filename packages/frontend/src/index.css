@@ -1,4 +1,4 @@
-/* anonboard design system — tokens + components (see docs/internal/design).
+/* anonboard design system — tokens + components.
    One saturated thing on screen: the Solana gradient. Everything else neutral.
    Theme-aware: prefers-color-scheme default + [data-theme] override.
    Layout: cinematic — a full-bleed claw hero, a console card overlapping up into

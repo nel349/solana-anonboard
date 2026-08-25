@@ -1,7 +1,7 @@
 // The signature: a kraft sheet torn by a raptor claw, revealing the two chains
 // beneath — Midnight (white, left) and Solana (its gradient, right). Used once, as
-// the full-bleed cinematic hero. Ported from docs/internal/design/claw-solana.html;
-// theme-aware via the .t-*/.s-* CSS classes (fill/stroke bound to tokens in
+// the full-bleed cinematic hero. Theme-aware via the .t-*/.s-* CSS classes
+// (fill/stroke bound to tokens in
 // index.css). Returns the bare <svg> (class .claw-svg) so App can overlay a bar on
 // it; `slice` crops to fill whatever banner height the layout gives it, keeping the
 // ANONBOARD wordmark centered.

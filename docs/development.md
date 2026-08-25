@@ -2,12 +2,13 @@
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.3. No Docker required (the localnet runs native vendored binaries). The Solana and Midnight node/indexer/proof toolchains are vendored; the **first run compiles the Rust Solana program + the Compact circuit and downloads the toolchains, so expect a few minutes.**
+- [Bun](https://bun.sh) ≥ 1.3.
+- **Docker** with Compose v2, and the daemon running. The local Midnight chain is mn's Docker localnet (node/indexer/proof), brought up automatically by `bun run dev` via `mn localnet up`. The **first run pulls those images, downloads the Solana toolchain, and compiles the Rust Solana program + the Compact circuit, so expect a few minutes.**
 - **Rust** (`rustup` + `cargo`), install: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`. The vendored `cargo-build-sbf` downloads its own SBF platform-tools, but it drives the host `cargo`/`rustup` (for `cargo metadata` and toolchain linking), so a fresh clone without Rust fails the Solana build with `failed to start 'cargo metadata'`.
 - A **C toolchain** for the host (macOS: `xcode-select --install`; Debian/Ubuntu: `apt install build-essential`). Rust compiles proc-macro/build-script crates for the host target and links them with the system `cc`; without it the Solana build fails at the first host-crate link. (Also assumed, ubiquitous on macOS/Linux: `curl`, `lsof`.)
 - The **Compact compiler** (NOT vendored, and the compiled `managed/` artifact is not committed, so a fresh clone must have it). Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh`. The boot step compiles with toolchain `+0.31.0`, which the installed `compact` version manager fetches on first use.
 - `midnight-wallet-cli` (`mn`) **≥ 0.5.0**, installed automatically from the pinned dependency. The deploy and operator prime dust via `mn dust export`, which exists only in 0.5.0+; on 0.4.x it is missing and the flow falls back to the slow SDK cold-sync that never completes on preprod. Check with `mn --version`.
-- The stack binds fixed localhost ports; they must be free and bindable: `5432` (PGLite), `8899`/`9900` (Solana), `9999` (sync API), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` when self-hosting Midnight.
+- The stack binds fixed localhost ports; they must be free and bindable: `5432` (PGLite), `8899`/`9900` (Solana), `9999` (sync API), `3334` (batcher), `3335` (operator), `5173` (frontend), plus `9944`/`8088`/`6300` for the Docker localnet (node/indexer/proof).
 
 ## Running the stack
 
@@ -18,7 +19,7 @@ bun run dev:preview    # against the preview TestNet   (see docs/networks-and-ac
 bun run dev:preprod    # against the preprod TestNet
 ```
 
-`bun run dev` brings the whole stack up in dependency order — Solana validator, a Midnight localnet, the compiled contract (deployed once), the sync node, the operator, the gasless batcher, and the frontend. It shows a live checklist as each service comes up and ends with a banner pointing at the app:
+`bun run dev` brings the whole stack up in dependency order — Solana validator, the Midnight Docker localnet (`mn localnet up`), the compiled contract (deployed fresh each run), the sync node, the operator, the gasless batcher, and the frontend. It shows a live checklist as each service comes up and ends with a banner pointing at the app:
 
 ```
 ✓ anonboard is ready
@@ -26,7 +27,7 @@ bun run dev:preprod    # against the preprod TestNet
   ...
 ```
 
-It **holds the terminal** like any dev server; **Ctrl-C** stops the whole stack and frees the ports.
+It **holds the terminal** like any dev server; **Ctrl-C** stops the whole stack, frees the ports, and tears down the Docker localnet — so the next `bun run dev` starts from a fresh chain and redeploys.
 
 ### Managing a running stack
 
@@ -34,13 +35,13 @@ It **holds the terminal** like any dev server; **Ctrl-C** stops the whole stack 
 |---|---|
 | `bun run dev:logs` | Follow the raw logs (they stream to `.dev.log`). |
 | `bun run dev:status` | Show every service, its PID, ports, and links — works from any terminal. |
-| `bun run dev:stop` | Stop everything and free the ports (reaps a localnet the orchestrator would otherwise leave). |
+| `bun run dev:stop` | Stop everything, free the ports, and tear down the Docker localnet (fresh chain + deploy next run). |
 | `bun run dev:raw` | The plain orchestrator output, without the checklist wrapper. Assumes a prior `bun run dev` (the `dev` wrapper generates the local batcher keypair; the raw orchestrator does not). |
 
-To wipe the local chain and start clean:
+The local chain is wiped automatically on every stop (Ctrl-C / `bun run dev:stop`), so each `bun run dev` already starts clean. To reset it manually without stopping the rest of the stack:
 
 ```bash
-bun run --filter @solana-anonboard/contracts-midnight midnight:reset
+mn localnet down     # stop + wipe the Docker localnet (node/indexer/proof + volumes)
 ```
 
 ## Headless scripts
@@ -84,9 +85,15 @@ bun run test:contract # the Compact contract simulator (incl. anonymity/bypass c
 
 ## Troubleshooting
 
-- **`bun run dev` prints a "partial localnet" error and stops.** Leftover Midnight processes from a previous run are squatting `:9944`/`:8088`/`:6300`. Run `bun run dev:stop` to reap them, then retry. (Ctrl-C already does a full teardown; this happens after a hard kill or a closed terminal.)
-- **The indexer logs a crash then recovers on a cold start.** Expected. The vendored indexer's stake-pool sub-indexer can exit once on a freshly-wiped chain; it's supervised and relaunches. Each `bun run dev` starts from a fresh chain, and an indexer connected from genesis rides epoch crossings fine.
+- **`bun run dev` stops at `midnight-localnet-up` ("localnet not healthy after 180s").** The Docker localnet didn't come up. Check the Docker daemon is running, then inspect it: `mn localnet status` (are node/indexer/proof healthy?) and `mn localnet logs`. A stuck localnet is fixed with `mn localnet down` then re-running `bun run dev`. If another chain is on `:9944`/`:8088`/`:6300`, the step reports the chain name and refuses — stop that localnet first.
+- **A localnet container restarts on a cold start.** Docker manages the localnet's restart policy; a one-off restart while the fresh chain produces its first block is normal. Confirm health with `mn localnet status`.
 - **The deploy sits at "Waiting to receive tokens…" for a minute or two.** Normal on a cold chain: the deploy wallet holds NIGHT but needs dust to accrue before it can pay. It resolves on its own.
+- **`Contract deploy` hangs on `Wallet sync progress … dust=false` well past the usual ~160s.** Rare now that each run starts from a fresh chain, but a stale `mn` dust cache that no longer matches the chain can still leave the deploy wallet unable to reconcile dust even though `mn` primed it: you'll see `dust primed via mn … balance=…` followed by `dust=false` indefinitely. Don't wait it out — reset the localnet and mn's cache:
+  ```bash
+  bun run dev:stop        # tears the localnet down
+  mn cache clear          # wipe mn's dust cache
+  bun run dev             # fresh chain — deploy completes in ~160s
+  ```
 - **A hosted (preview/preprod) run fails at the payment step.** The payer wallet isn't funded on that net — see [networks & accounts](networks-and-accounts.md#funding-the-payer-wallet-on-a-hosted-net).
 - **The local Solana validator wedges after ~45 min.** The vendored validator can't cap its ledger size and eventually prunes blocks the sync still needs. A fresh `bun run dev` resets both chains to slot 0.
 - **Browser wallet connect has open issues on `undeployed` (and a preprod Join fails).** Tracked in [#1](https://github.com/nel349/solana-anonboard/issues/1) — underlying causes include Lace's [lace#2254](https://github.com/input-output-hk/lace/issues/2254) and a 1AM local/hosted switch bug; on **preprod** a browser wallet's dust sync lags the large chain so the Join is rejected. For a reliable Join in either case use the **mn CLI wallet** ([Using the mn CLI wallet](mn-wallet.md)), or the headless flow (`bun run scripts/demo.ts` / `scripts/blind-join.ts`). On a hosted net, a stale "Network ID mismatch" clears by disconnecting and reconnecting (or reopening the tab).
