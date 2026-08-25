@@ -13,7 +13,7 @@
 
 An anonymous bulletin board: the **right to post is proven in a Compact zero-knowledge circuit on Midnight**, and the **posts themselves live on Solana** (public, gasless). Posting is open to anyone — a post is only *marked as a member's* when its author proved membership, and no post traces back to a person, not even for whoever runs the servers. One [EffectStream](https://effectstream.dev) node reads both chains and ties them together through an anonymous badge. See **[Architecture](docs/architecture.md)** for how it works and why the privacy holds.
 
-> Built on the Midnight Network.
+> This project is built on the Midnight Network.
 
 ## Quickstart
 
