@@ -2,9 +2,11 @@
 
 anonboard picks a **Midnight** network and, independently, a **Solana** network. The proof server is always local. The Solana side defaults to a local validator but can run on **devnet** for persistent posts (see [Solana: local vs devnet](#solana-local-vs-devnet)).
 
+> **Docker is only for `undeployed`.** The local chain runs as a Docker localnet (node/indexer/proof); a hosted run uses the remote node + indexer and runs only the proof server locally (natively), so **preview/preprod don't need Docker**. Everything else in the [README prerequisites](../README.md#quickstart) (Bun, Rust, C toolchain, Compact) still applies.
+
 | Midnight network | Node / indexer | Proof server | Deploy pays with | Roster owner |
 |---|---|---|---|---|
-| `undeployed` (default) | local (`bun run dev`) | local | the chain's genesis wallet (auto-funded) | committed dev key |
+| `undeployed` (default) | Docker localnet (`bun run dev`) | local | the chain's genesis wallet (auto-funded) | committed dev key |
 | `preview` | hosted TestNet | local | **your funded wallet** | **your owner key** |
 | `preprod` | hosted TestNet | local | **your funded wallet** | **your owner key** |
 

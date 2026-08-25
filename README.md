@@ -17,28 +17,43 @@ An anonymous bulletin board: the **right to post is proven in a Compact zero-kno
 
 ## Quickstart
 
-**Prerequisites** — [Bun](https://bun.sh) ≥ 1.3, **Rust** (`rustup`; `cargo-build-sbf` drives it to build the Solana program), a **C toolchain** (macOS: `xcode-select --install`; Debian/Ubuntu: `apt install build-essential`), and the **Compact compiler** (the contract compiles at boot; the artifact isn't committed):
+A full walkthrough on the local `undeployed` chain — from a fresh clone to a post the board marks as a verified member. Everything runs on your machine. (Running against a hosted TestNet? See **[Other networks](#other-networks-preview--preprod)** below.)
+
+**Prerequisites** — [Bun](https://bun.sh) ≥ 1.3, **Docker** (with Compose v2) running — the local Midnight chain is a Docker localnet, so the daemon must be up before `bun run dev` — **Rust** (`rustup`; `cargo-build-sbf` drives it to build the Solana program), a **C toolchain** (macOS: `xcode-select --install`; Debian/Ubuntu: `apt install build-essential`), and the **Compact compiler** (the contract compiles at boot; the artifact isn't committed):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh                                             # Rust
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh   # Compact
 ```
 
-No Docker required — the localnet runs native vendored binaries. On the **first run** the Solana build toolchain and the Midnight node/indexer/proof binaries download, and the Rust program + Compact circuit compile, so expect a few minutes.
+**1. Start the stack.**
 
 ```bash
 bun install
 bun run dev            # the local `undeployed` chain — everything runs on your machine
 ```
 
-When the checklist finishes, open **http://localhost:5173**. You can read the board straight away.
+`bun run dev` asks two quick questions on startup — each auto-picks a safe default after 20s, so pressing **Enter** through both is fine:
 
-**To Join and post as a member you need a wallet — and which network you're on decides how:**
+- **Reuse the contract?** — appears only on a re-run (when one's already deployed): **Enter** reuses it, `n` deploys fresh.
+- **Solana network?** — pick **`L` (local validator)**: fully local, posts reset each run (`d` uses persistent devnet).
 
-- **`bun run dev` — local (`undeployed`):** browser wallet connect currently has open issues here ([#1](https://github.com/nel349/solana-anonboard/issues/1)), so use the **[mn CLI wallet](docs/mn-wallet.md)** as the reliable path — or run the headless demo: `bun run scripts/demo.ts`.
-- **`bun run dev:preview` / `bun run dev:preprod` — hosted TestNet:** use a v4 browser wallet, or the **[mn CLI wallet](docs/mn-wallet.md)** — the reliable path on **preprod**, where a browser wallet's dust sync lags the large chain and the Join fails. Hosted nets also need a funded wallet + owner key — see **[Networks & accounts](docs/networks-and-accounts.md)**.
+The local Midnight chain runs as a **Docker localnet** (node/indexer/proof containers, brought up automatically). The first cold start pulls those images, downloads the Solana toolchain, compiles the Rust program + Compact circuit, and waits for dust to accrue — give it a few minutes; the **Contract deploy** step alone can take ~160s. At the **`✓ anonboard is ready`** banner, open **http://localhost:5173** — you'll see *your anonymous badge*, a red **● NOT A MEMBER** tag, and an empty **Board**. You can read, but you're not verified yet. Each `bun run dev` starts from a fresh chain (stopping the stack tears the localnet down), so every run redeploys.
 
-Either way the check is the same: a badge holder's post is marked **member**, a stranger's **not a member**, and both appear on the board.
+**2. Start the mn CLI wallet.** Browser wallet connect has open issues on the local chain ([#1](https://github.com/nel349/solana-anonboard/issues/1)), so the reliable local wallet is `mn` (midnight-wallet-cli). It's already a project dependency — run it with **`bunx mn` from the repo directory** (no global install). In a second terminal (in the repo):
+
+```bash
+bunx mn wallet generate demo
+bunx mn airdrop 1000 --wallet demo --network undeployed      # fund it on the localnet
+bunx mn dust register --wallet demo --network undeployed     # so it can pay the Midnight fee (dust)
+bunx mn serve --wallet demo --network undeployed --approve-all
+```
+
+It prints `Server ready — listening on ws://localhost:9932`. (Full detail + troubleshooting: [Using the mn CLI wallet](docs/mn-wallet.md).)
+
+**3. Join and post.** In the app, click **Connect wallet → mn CLI wallet (local)**, then **Join** — the browser proves membership in the Compact ZK circuit (your secret never leaves the page), the mn wallet pays the fee, and once the node syncs your badge flips to a green **● MEMBER**. Type a message and **Post**: it lands on the **Board** labeled **member · joined on Midnight** — gasless, settled on Solana, provably from a member without revealing which one. (A post from a badge that never joined shows **not a member** — that's the check working.)
+
+Inspect the raw feed any time with `curl -s localhost:9999/api/posts`, and stop everything with `bun run dev:stop`. (Prefer no browser? `bun run scripts/demo.ts` runs the whole loop headless.)
 
 | Service | URL |
 |---|---|
@@ -46,10 +61,14 @@ Either way the check is the same: a badge holder's post is marked **member**, a 
 | Sync node API | http://localhost:9999/api/posts · `/api/badges` |
 | Batcher (fee-payer) | http://localhost:3334 |
 | Operator | http://localhost:3335 |
-| Midnight node / indexer / proof server | :9944 · :8088 · :6300 |
+| Midnight localnet (Docker: node / indexer / proof) | :9944 · :8088 · :6300 |
 | mn CLI wallet (optional, `mn serve`) | ws://localhost:9932 — see [Using the mn CLI wallet](docs/mn-wallet.md) |
 
 Manage a running stack from any terminal: `bun run dev:status`, `bun run dev:logs`, `bun run dev:stop`. Full workflow and troubleshooting in **[Development](docs/development.md)**.
+
+## Other networks (preview / preprod)
+
+`bun run dev` is the default and runs entirely locally. To run against a hosted Midnight TestNet instead, use `bun run dev:preview` or `bun run dev:preprod`. Hosted nets need two things the local chain provides for free — a **funded payer wallet** and a **roster owner key** — and on **preprod** the [mn CLI wallet](docs/mn-wallet.md) is the reliable way to Join (a browser wallet's dust sync lags the large chain). The complete setup — the two keys, funding at the faucet, and endpoints — is in **[Networks & accounts](docs/networks-and-accounts.md)**.
 
 ## Documentation
 
@@ -70,6 +89,7 @@ The contract compiles and the loop runs end-to-end (verified 2026-08-24 — E2E 
 | `@midnight-ntwrk/midnight-js-*` | 4.1.1 |
 | EffectStream | 0.102.0 |
 | `midnight-wallet-cli` (`mn`) | 0.5.1 (needs `dust export`) |
+| Midnight localnet (Docker, via `mn localnet up`) | node 1.0.0 · indexer-standalone 4.3.3 · proof-server 8.1.0 |
 
 ## Scope and limitations
 
