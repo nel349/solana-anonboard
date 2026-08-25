@@ -17,13 +17,11 @@ export const APP_PORTS = [
   4747, // orchestrator API
 ];
 
-// The shared Midnight localnet ports. These are served EITHER by a self-hosted native
-// node we started, OR by an ATTACHED localnet running as Docker containers — in which
-// case the published host port is held by Docker's own backend process. SIGKILLing that
-// backend kills Docker Desktop and every container, tearing down a localnet we don't own.
-// freePorts() never kills a Docker-held port, so an attached (Docker) localnet survives
-// stop while a self-hosted native one is still reaped. Stop a Docker localnet explicitly
-// with `mn localnet down`.
+// The Midnight localnet ports. anonboard's localnet is mn's Docker localnet, so these
+// published host ports are held by Docker's own backend process. SIGKILLing that backend
+// kills Docker Desktop and every container. freePorts() never kills a Docker-held port,
+// so the localnet survives a plain freePorts; it's torn down explicitly with
+// `mn localnet down` (see scripts/localnet-teardown.ts).
 export const LOCALNET_PORTS = [
   9944, 30333, // Midnight node / p2p
   8088, // Midnight indexer

@@ -2,7 +2,7 @@ import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
-import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import { MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { midnightPlan } from "./localnet-preflight.ts";
 import { midnightNetwork } from "./packages/contracts-midnight/networks.ts";
 
@@ -175,74 +175,46 @@ if (hosted) {
       ],
     },
   ];
-} else if (mnPlan!.mode === "self-host") {
-  // Boot the full localnet — but strip stopProcessAtPort so we never force-free a
-  // shared port (the preflight already confirmed these ports are ours to use).
-  midnightProcesses = launchMidnight(
-    "@solana-anonboard/contracts-midnight",
-    { cwd: contractsMidnightCwd },
-    { dependsOn: ["midnight-contract-compile"], env: deployEnv },
-  );
-  for (const p of midnightProcesses)
-    delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
-
-  // launchMidnight's env param doesn't reach the deploy in this version, so set the
-  // centralized endpoints (+ storage password) on it explicitly — otherwise the deploy
-  // falls back to the SDK's stale default (v3) while everything else uses networks.ts.
-  const deployProc = midnightProcesses.find((p) => p.name === MidnightNames.CONTRACT_DEPLOY);
-  if (deployProc)
-    (deployProc as { env?: Record<string, string> }).env = {
-      ...((deployProc as { env?: Record<string, string> }).env ?? {}),
-      ...deployEnv,
-    };
-
-  // Start every boot from a fresh chain. The node persists state in .midnight-data,
-  // so a re-run would RESUME an aged chain — and a fresh indexer catching up THROUGH
-  // an already-crossed epoch hits the vendored spo-indexer's process_next_epoch
-  // crash (an untagged-enum decode error) and wedges the whole localnet. Booting
-  // from genesis avoids it: an indexer connected from block 0 rides epoch crossings
-  // without crashing (verified past slot 300). Reset also drops the stale
-  // contract-*.json so the deploy re-runs against the new chain instead of skipping.
-  // Self-host only — never wipe an attached chain we don't own. See
-  // docs/internal/LOCALNET-DESIGN.md.
-  const reset = {
-    name: "midnight-reset",
-    description: "Wipe stale localnet chain state for a fresh boot",
-    cwd: contractsMidnightCwd,
-    args: ["run", "midnight:reset"],
-    waitToExit: true,
-    critical: true,
-  };
-  for (const p of midnightProcesses)
-    (p as { dependsOn?: string[] }).dependsOn = ["midnight-reset", ...(p.dependsOn ?? [])];
-  midnightProcesses = [reset, ...midnightProcesses];
-
-  // Belt-and-suspenders: the indexer can still exit on the block-#1 startup race on
-  // a cold chain; the orchestrator has no restart field, so supervise it.
-  const indexer = midnightProcesses.find((p) => p.name === MidnightNames.INDEXER);
-  if (indexer)
-    indexer.args = ["run", path.join(root, "scripts/restart-on-failure.ts"), ...indexer.args];
 } else {
-  // Attach: skip node/indexer/proof entirely; fund the deploy wallet, then deploy.
+  // Local `undeployed`: mn's Docker localnet is the one way. In `docker` mode we bring
+  // it up (idempotent — a no-op when already healthy) via midnight-localnet-up; in
+  // `attach` mode (MIDNIGHT_LOCALNET=attach) a localnet is already running, so we skip
+  // straight to fund + deploy. Either way we fund the deploy wallet, then deploy — and
+  // NEVER set stopProcessAtPort on these, so stop never force-frees the Docker ports
+  // (teardown uses `mn localnet down`).
+  const bringUpLocalnet = mnPlan!.mode === "docker";
+  const localnetDep = bringUpLocalnet ? ["midnight-localnet-up"] : [];
   midnightProcesses = [
+    ...(bringUpLocalnet
+      ? [
+          {
+            name: "midnight-localnet-up",
+            description: "Bring up mn's Docker localnet (node/indexer/proof) and wait for readiness",
+            cwd: root,
+            args: ["run", "scripts/midnight-localnet-up.ts"],
+            waitToExit: true,
+            critical: true,
+          },
+        ]
+      : []),
     {
       name: "midnight-fund",
-      description: "Fund the deploy wallet on the attached localnet (mn)",
+      description: "Fund the deploy wallet on the localnet (mn; best-effort — genesis wallet is pre-funded)",
       cwd: root,
       args: ["run", "scripts/midnight-fund.ts"],
       waitToExit: true,
       critical: true,
-      dependsOn: ["midnight-contract-compile"],
+      dependsOn: ["midnight-contract-compile", ...localnetDep],
     },
     {
       name: MidnightNames.CONTRACT_DEPLOY,
-      description: "Deploy the anonboard contract (attached localnet)",
+      description: "Deploy the anonboard contract to the localnet",
       cwd: contractsMidnightCwd,
       args: ["run", "midnight-contract:deploy"],
       env: deployEnv,
       waitToExit: true,
       critical: true,
-      dependsOn: ["midnight-contract-compile", "midnight-fund"],
+      dependsOn: ["midnight-contract-compile", "midnight-fund", ...localnetDep],
     },
   ];
 }

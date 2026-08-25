@@ -20,14 +20,15 @@ browser wallet can't. anonboard offers it in the connect dialog as **"mn CLI wal
 
 ## Undeployed (local demo)
 
-The local Midnight chain runs inside anonboard, so start it first.
+The local Midnight chain is mn's Docker localnet, which `bun run dev` brings up for you, so start it first.
 
 ```bash
-bun run dev                 # brings up the local node/indexer/proof (9944/8088/6300)
+bun run dev                 # brings up the Docker localnet — node/indexer/proof (9944/8088/6300)
 ```
 
-> Make sure nothing else is holding those ports. If you have a Docker localnet up, stop it first
-> (`mn localnet down`) so anonboard's own proof server can bind 6300.
+> `bun run dev` runs `mn localnet up` (idempotent — it reuses an already-running localnet), so
+> you don't need to start one yourself. Just make sure any localnet already on those ports is the
+> `undeployed` chain, not a preprod/preview one — the boot step refuses a foreign chain.
 
 In a second terminal, create + fund a wallet on that localnet, then serve it:
 
@@ -76,8 +77,9 @@ speaks the same connector API as a browser wallet, so Join / balance / submit wo
 
 - **Port 9932 already in use** — another `mn serve` is running. Stop it, or pick a port
   (`mn serve --port 9933 …`) and point the app at it (`VITE_MN_SERVE_URL=ws://localhost:9933`).
-- **Undeployed: proof/node errors at boot** — a Docker localnet (or another stack) holds
-  9944/8088/6300. Stop it (`mn localnet down`) so anonboard's native localnet owns them.
+- **Undeployed: proof/node errors at boot** — the Docker localnet didn't come up healthy.
+  Check `mn localnet status` / `mn localnet logs`; `mn localnet down` then re-run `bun run dev`
+  to bring up a fresh one.
 - **"wallet is on network X, expected Y"** — the `mn serve --network` must match the app's network
   (`VITE_MIDNIGHT_NETWORK_ID`).
 - **Join still fails on preprod** — the served wallet isn't funded or its dust hasn't accrued.

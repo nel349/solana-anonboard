@@ -2,7 +2,7 @@ import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
-import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import { MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { midnightPlan } from "../../localnet-preflight.ts";
 import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
@@ -28,51 +28,50 @@ if (idx >= 0) {
   };
 }
 
-// Same smart Midnight leg as dev: attach to a running localnet or self-host one,
-// never force-freeing a shared port. This is what lets the tests run against an
-// already-running localnet instead of killing it.
+// Same Midnight leg as dev: mn's Docker localnet is the one local chain. In `docker`
+// mode we bring it up (idempotent) and wait for readiness; in `attach` mode
+// (MIDNIGHT_LOCALNET=attach) it's already running, so we skip to fund + deploy. Ports
+// are never force-freed here — teardown uses `mn localnet down`.
 const mnPlan = midnightPlan();
 console.log(`[localnet] Midnight -> ${mnPlan.mode}: ${mnPlan.reason}`);
 const contractsMidnightCwd = path.join(root, "packages/contracts-midnight");
 const deployEnv = { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" };
 
-let midnightProcesses;
-if (mnPlan.mode === "self-host") {
-  midnightProcesses = launchMidnight(
-    "@solana-anonboard/contracts-midnight",
-    { cwd: contractsMidnightCwd },
-    { dependsOn: ["midnight-contract-compile"], env: deployEnv },
-  );
-  for (const p of midnightProcesses)
-    delete (p as { stopProcessAtPort?: number[] }).stopProcessAtPort;
-  // The vendored indexer 4.3.3 can crash on a freshly-wiped chain (spo-indexer
-  // process_next_epoch race); the orchestrator has no restart, so supervise it.
-  const indexer = midnightProcesses.find((p) => p.name === MidnightNames.INDEXER);
-  if (indexer)
-    indexer.args = ["run", path.join(root, "scripts/restart-on-failure.ts"), ...indexer.args];
-} else {
-  midnightProcesses = [
-    {
-      name: "midnight-fund",
-      description: "Fund the deploy wallet on the attached localnet (mn)",
-      cwd: root,
-      args: ["run", "scripts/midnight-fund.ts"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["midnight-contract-compile"],
-    },
-    {
-      name: MidnightNames.CONTRACT_DEPLOY,
-      description: "Deploy the anonboard contract (attached localnet)",
-      cwd: contractsMidnightCwd,
-      args: ["run", "midnight-contract:deploy"],
-      env: deployEnv,
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["midnight-contract-compile", "midnight-fund"],
-    },
-  ];
-}
+const bringUpLocalnet = mnPlan.mode === "docker";
+const localnetDep = bringUpLocalnet ? ["midnight-localnet-up"] : [];
+const midnightProcesses = [
+  ...(bringUpLocalnet
+    ? [
+        {
+          name: "midnight-localnet-up",
+          description: "Bring up mn's Docker localnet (node/indexer/proof) and wait for readiness",
+          cwd: root,
+          args: ["run", "scripts/midnight-localnet-up.ts"],
+          waitToExit: true,
+          critical: true,
+        },
+      ]
+    : []),
+  {
+    name: "midnight-fund",
+    description: "Fund the deploy wallet on the localnet (mn; best-effort — genesis wallet is pre-funded)",
+    cwd: root,
+    args: ["run", "scripts/midnight-fund.ts"],
+    waitToExit: true,
+    critical: true,
+    dependsOn: ["midnight-contract-compile", ...localnetDep],
+  },
+  {
+    name: MidnightNames.CONTRACT_DEPLOY,
+    description: "Deploy the anonboard contract to the localnet",
+    cwd: contractsMidnightCwd,
+    args: ["run", "midnight-contract:deploy"],
+    env: deployEnv,
+    waitToExit: true,
+    critical: true,
+    dependsOn: ["midnight-contract-compile", "midnight-fund", ...localnetDep],
+  },
+];
 
 export default {
   processes: [
@@ -89,9 +88,8 @@ export default {
     },
     ...solanaProcesses,
 
-    // Midnight leg: compile the Compact circuit, then either self-host the local
-    // node/indexer/proof + deploy, or (if a localnet is already running) fund +
-    // deploy against it — see the smart plan above.
+    // Midnight leg: compile the Compact circuit, then bring up mn's Docker localnet
+    // (or attach to a running one) and fund + deploy against it — see the plan above.
     {
       name: "midnight-contract-compile",
       description: "Compile the anonboard Compact circuit",

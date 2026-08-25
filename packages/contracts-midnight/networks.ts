@@ -9,8 +9,13 @@
 // support-matrix): node 1.0.x, indexer 4.3.x, proof server 8.1.0, midnight-js 4.1.1 —
 // the generation this repo targets, and the one preview/preprod run. The indexer API
 // is v4 on every network (https://docs.midnight.network/relnotes/network); the local
-// indexer serves v4 as well. The proof server is always local: it proves on your
-// machine, then submits to the node.
+// indexer serves v4 as well.
+//
+// The local `undeployed` node/indexer/proof are mn's Docker localnet (`mn localnet up`);
+// `bun run dev` brings them up on 9944/8088/6300.
+// The proof server is always local (localhost:6300): on undeployed it's the localnet's
+// proof-server container; on a hosted net it's a local proof server that proves on your
+// machine, then submits to the hosted node.
 
 export type MidnightNetwork = {
   id: string;
