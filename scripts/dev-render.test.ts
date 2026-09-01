@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { deployStep, clampWidth, stripAnsi } from "./dev-render.ts";
+import { deployStep, clampWidth, stripAnsi, solanaRowView } from "./dev-render.ts";
 
 describe("deployStep", () => {
   test("maps the deploy process's latest line to a short step", () => {
@@ -69,5 +69,30 @@ describe("clampWidth", () => {
 
   test("cols=0 (unknown width) is a no-op", () => {
     expect(clampWidth("anything", 0)).toBe("anything");
+  });
+});
+
+describe("solanaRowView", () => {
+  const base = { label: "Solana validator", port: 8899 };
+
+  test("local run shows the validator row and probes the validator port (regression: reader also runs locally)", () => {
+    const v = solanaRowView(false, 8898, base);
+    expect(v.label).toBe("Solana validator");
+    expect(v.right).toBe(":8899");
+    expect(v.note).toBeUndefined();
+    expect(v.probePort).toBe(8899);
+  });
+
+  test("devnet run shows the reader row and probes the reader port", () => {
+    const v = solanaRowView(true, 8898, base);
+    expect(v.label).toBe("Solana devnet");
+    expect(v.right).toBe(":8898");
+    expect(v.note).toBe("devnet post reader; posts persist across restarts");
+    expect(v.probePort).toBe(8898);
+  });
+
+  test("local run prefers an explicit link over the port", () => {
+    const v = solanaRowView(false, 8898, { ...base, link: "http://localhost:8899" });
+    expect(v.right).toBe("http://localhost:8899");
   });
 });

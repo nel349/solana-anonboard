@@ -44,6 +44,36 @@ async function ensureCargoBuildSbf(): Promise<void> {
   await solanaNodeBin.download();
 }
 
+// cargo-build-sbf drives the HOST cargo for `cargo metadata` (the SBF build itself uses
+// the platform-tools cargo), and the anonboard crate uses edition2024 — so the host cargo
+// must be >= 1.85. A too-old host cargo (typically Homebrew's, shadowing rustup on PATH)
+// dies deep inside `cargo metadata` with the cryptic `feature 'edition2024' is required`.
+// Catch it up front and say which cargo was found and how to fix the PATH.
+const HOST_CARGO_MIN = [1, 85] as const;
+function checkHostCargo(): void {
+  const version = spawnSync("cargo", ["--version"], { encoding: "utf8" });
+  if (version.status !== 0) return; // no host cargo at all — the later steps report the Rust prereq
+  const m = (version.stdout ?? "").match(/cargo (\d+)\.(\d+)/);
+  if (!m) return;
+  const [major, minor] = [Number(m[1]), Number(m[2])];
+  if (major > HOST_CARGO_MIN[0] || (major === HOST_CARGO_MIN[0] && minor >= HOST_CARGO_MIN[1])) return;
+
+  const cargoPath = spawnSync("sh", ["-c", "command -v cargo"], { encoding: "utf8" })
+    .stdout?.trim() ?? "cargo";
+  console.error(
+    `[contracts-solana] host cargo is too old for this build.\n` +
+      `  found: ${(version.stdout ?? "").trim()} at ${cargoPath}\n` +
+      `  need:  cargo >= ${HOST_CARGO_MIN.join(".")} (the program crate uses edition2024, and\n` +
+      `         cargo-build-sbf runs the host cargo for \`cargo metadata\`)\n` +
+      `\n` +
+      `A Homebrew/system Rust earlier on PATH shadows rustup's. Fix one of:\n` +
+      `  • source "$HOME/.cargo/env"   (puts rustup's cargo first for this shell)\n` +
+      `  • rustup update && rustup default stable\n` +
+      `  • brew unlink rust            (if the found path is Homebrew's)`,
+  );
+  process.exit(1);
+}
+
 async function main() {
   if (!fs.existsSync(PROGRAM_MANIFEST)) {
     console.error(
@@ -52,6 +82,7 @@ async function main() {
     process.exit(1);
   }
 
+  checkHostCargo();
   fs.mkdirSync(BUILD_DIR, { recursive: true });
   await ensureCargoBuildSbf();
 

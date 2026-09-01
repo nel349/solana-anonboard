@@ -66,6 +66,22 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Fail in ~1s when the Docker daemon isn't reachable — without this, `mn localnet up`
+  // fails fast but the readiness poll below still burns its full timeout before telling
+  // the user the actual problem.
+  if (spawnSync("docker", ["info"], { stdio: "ignore", timeout: 15_000 }).status !== 0) {
+    console.error(
+      [
+        "",
+        "[midnight-localnet-up] Docker isn't running (or the `docker` CLI is missing).",
+        "The local Midnight chain is a Docker localnet — start Docker (Docker Desktop /",
+        "colima) and re-run `bun run dev`. Install: https://docs.docker.com/get-docker/",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+
   localnetUp();
 
   if (!(await waitForReady())) {

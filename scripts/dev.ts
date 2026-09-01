@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEV_PORTS, freePorts } from "./dev-ports.ts";
 import { shouldTearDownLocalnet, tearDownLocalnet } from "./localnet-teardown.ts";
-import { stripAnsi, deployStep, clampWidth } from "./dev-render.ts";
+import { stripAnsi, deployStep, clampWidth, solanaRowView } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
 import { DEVNET_RPC, DEVNET_BATCHER_KEYPAIR, provisionDevnet } from "./provision-devnet.ts";
 import { SOLANA_DEVNET_PROGRAM_ID } from "../packages/contracts-solana/devnet.ts";
@@ -125,7 +125,10 @@ await maybePromptRedeploy();
 // On devnet a standalone post-reader (this health port) folds Solana posts for the sync;
 // batcher/frontend/provision talk to devnet directly.
 const SOLANA_READER_PORT = 8898;
-let solanaReaderPort: number | null = null; // set when devnet is chosen; drives the checklist row
+// The reader runs on BOTH networks since the account-storage refactor, so "is the reader
+// configured" says nothing about the network. This flag is the devnet signal for the
+// checklist labels + the Solana row's probe port (see solanaRowView).
+let devnetChosen = false;
 const LOCAL_RPC = "http://localhost:8899";
 // Local batcher/sponsor keypair — generated on first run, NOT committed (each clone gets its
 // own). An existing key is reused, so a working local setup is left untouched.
@@ -175,7 +178,6 @@ async function maybePromptSolanaNetwork(): Promise<void> {
     process.env.SOLANA_READER_UPSTREAM = rpc;
     process.env.SOLANA_READER_PROGRAM_ID = POST_PROGRAM_ID;
     process.env.SOLANA_READER_PORT = String(SOLANA_READER_PORT);
-    solanaReaderPort = SOLANA_READER_PORT;
     process.stdout.write(
       `${c.dim}→ Solana on the local validator (posts reset each run). batcher ${feePayer.slice(0, 8)}…${c.reset}\n`,
     );
@@ -198,7 +200,7 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   process.env.SOLANA_READER_UPSTREAM = rpc;
   process.env.SOLANA_READER_PROGRAM_ID = SOLANA_DEVNET_PROGRAM_ID;
   process.env.SOLANA_READER_PORT = String(SOLANA_READER_PORT);
-  solanaReaderPort = SOLANA_READER_PORT;
+  devnetChosen = true;
   process.stdout.write(
     `${c.yellow}→ devnet ready — program ${SOLANA_DEVNET_PROGRAM_ID.slice(0, 8)}…, posts persist across restarts.${c.reset}\n`,
   );
@@ -308,13 +310,12 @@ function rows(): Row[] {
     const up = states[s.key];
     const status: Row["status"] = up ? "up"
       : s.key === "indexer" && /spo-indexer exited with ERROR/.test(logTail) ? "retry" : "wait";
-    const devnetSolana = s.key === "solana" && solanaReaderPort;
-    out.push({
-      label: devnetSolana ? "Solana devnet" : s.label,
-      right: devnetSolana ? `:${solanaReaderPort}` : (s.link ?? `:${s.port}`),
-      status,
-      note: up ? "" : devnetSolana ? "devnet post reader; posts persist across restarts" : s.note,
-    });
+    if (s.key === "solana") {
+      const v = solanaRowView(devnetChosen, SOLANA_READER_PORT, s);
+      out.push({ label: v.label, right: v.right, status, note: up ? "" : v.note });
+    } else {
+      out.push({ label: s.label, right: s.link ?? `:${s.port}`, status, note: up ? "" : s.note });
+    }
   }
   return out;
 }
@@ -361,7 +362,7 @@ function readyLines(): string[] {
       ? line("Operator", "http://localhost:3335", "warming — Join enabled shortly", c.yellow)
       : line("Operator", "http://localhost:3335", "✓ Join enabled", c.green),
     line("Batcher", "http://localhost:3334"),
-    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   ${solanaReaderPort ? "Solana devnet (persistent)" : "Solana :8899"}${c.reset}`,
+    `  ${c.dim}${pad("Chain", 10)}${c.reset}${c.dim}${HOSTED ? `Midnight ${NET} (hosted) · proof :6300` : "Midnight :9944 / :8088 / :6300"}   ${devnetChosen ? "Solana devnet (persistent)" : "Solana :8899"}${c.reset}`,
     "",
     `  ${c.dim}logs:${c.reset} bun run dev:logs   ${c.dim}status:${c.reset} bun run dev:status   ${c.dim}stop:${c.reset} Ctrl-C  ${c.dim}(or bun run dev:stop)${c.reset}`,
   ];
@@ -391,8 +392,12 @@ async function poll() {
       // A dead port un-sticks the row (so a crashed service after warmup goes red, and the
       // banner won't claim ready). A slow health check on a LIVE port stays green (sticky),
       // so transient slowness (e.g. /api/posts under heavy catch-up) doesn't flip it back.
-      // On devnet there's no local validator — the "Solana" row tracks the sync shim instead.
-      const port = sv.key === "solana" && solanaReaderPort ? solanaReaderPort : sv.port;
+      // On devnet there's no local validator — the "Solana" row tracks the post reader
+      // instead. On local the validator port is the right probe (the reader runs there
+      // too, but the row is about the validator).
+      const port = sv.key === "solana"
+        ? solanaRowView(devnetChosen, SOLANA_READER_PORT, sv).probePort
+        : sv.port;
       if (!(await tcpOpen(port))) {
         s[sv.key] = false;
         return;

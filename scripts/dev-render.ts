@@ -63,3 +63,25 @@ export function clampWidth(line: string, cols: number, reset = "\x1b[0m"): strin
   }
   return out;
 }
+
+// The "Solana" checklist row changes shape by network. On a LOCAL run it tracks the
+// validator; on DEVNET there is no local validator, so it tracks the standalone post
+// reader instead. The switch must be the network CHOICE — not "is the reader running":
+// since the account-storage refactor the reader runs on local too, and keying on it
+// made local runs show devnet labels and probe the wrong port.
+export type SolanaRowView = { label: string; right: string; note?: string; probePort: number };
+export function solanaRowView(
+  devnet: boolean,
+  readerPort: number,
+  base: { label: string; port: number; link?: string; note?: string },
+): SolanaRowView {
+  if (!devnet) {
+    return { label: base.label, right: base.link ?? `:${base.port}`, note: base.note, probePort: base.port };
+  }
+  return {
+    label: "Solana devnet",
+    right: `:${readerPort}`,
+    note: "devnet post reader; posts persist across restarts",
+    probePort: readerPort,
+  };
+}

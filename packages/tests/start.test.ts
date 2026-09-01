@@ -8,6 +8,11 @@ import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const root = path.resolve(import.meta.dirname!, "../..");
 
+// Pin pg clients to IPv4 — same reasoning as start.dev.ts: @effectstream/db defaults
+// DB_HOST to "localhost" (can resolve to ::1) while the PGLite server may only manage
+// an IPv4 bind. Explicit override wins.
+process.env.DB_HOST ??= "127.0.0.1";
+
 // The sync node reads the deployed Midnight contract address at import time
 // (config.dev.ts → readMidnightContract), so it cannot start until the deploy
 // step has finished.

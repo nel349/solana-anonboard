@@ -93,18 +93,74 @@ async function fold(): Promise<void> {
   }
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+// A refused TCP connect often surfaces as an AggregateError whose own `message` is ""
+// (the real reasons sit in `.errors`) — naively printing `e.message` yields an empty
+// string, which is exactly how this process once "failed with no error". Dig the
+// meaningful text out of aggregate/cause chains and error codes.
+function describeError(e: unknown): string {
+  if (e instanceof AggregateError && e.errors.length > 0) {
+    return [...new Set(e.errors.map(describeError))].join("; ");
+  }
+  if (e instanceof Error) {
+    const code = (e as { code?: string }).code;
+    if (e.message) return code && !e.message.includes(code) ? `${e.message} (${code})` : e.message;
+    if (code) return `${e.name}: ${code}`;
+    if (e.cause !== undefined) return `${e.name}: ${describeError(e.cause)}`;
+    return e.name;
+  }
+  return String(e);
+}
+
+// Print a fatal error on BOTH streams before exiting. stdout demonstrably reaches the
+// orchestrator log (the startup banner does); relying on a single stream is how this
+// process once died with nothing in .dev.log. Never let a rejection escape to
+// @effectstream/db's process-global unhandledRejection handler — it logs only to a
+// remote sink and exits, which is invisible in a terminal.
+function fatal(context: string, e: unknown): never {
+  const msg = `[solana-post-reader] FATAL ${context}: ${describeError(e)}` +
+    (e instanceof Error && e.stack ? `\n${e.stack}` : "");
+  console.log(msg);
+  console.error(msg);
+  process.exit(1);
+}
+
+// The reader can win the race against the PGLite server at boot (its wait step probes
+// the port, not a working connection), so the first DB touch retries with the reason
+// logged and surfaced via the health endpoint — bounded, then a loud fatal.
+const DB_RETRY_MS = Number(process.env.SOLANA_READER_DB_RETRY_MS ?? "2000");
+const DB_RETRY_MAX = Number(process.env.SOLANA_READER_DB_RETRY_MAX ?? "60"); // ~2 min
+async function waitForDatabase(): Promise<void> {
+  for (let attempt = 1; attempt <= DB_RETRY_MAX; attempt++) {
+    try {
+      await ensureSchema();
+      return;
+    } catch (e) {
+      lastError = describeError(e);
+      console.log(
+        `[solana-post-reader] waiting for database (${attempt}/${DB_RETRY_MAX}): ${lastError}`,
+      );
+      await sleep(DB_RETRY_MS);
+    }
+  }
+  throw new Error(
+    `database unreachable after ${(DB_RETRY_MAX * DB_RETRY_MS) / 1000}s — last error: ${lastError}`,
+  );
+}
+
 async function loop(): Promise<void> {
-  await ensureSchema();
+  await waitForDatabase();
   for (;;) {
     try {
       await fold();
       firstSweepDone = true;
       lastError = "";
     } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
+      lastError = describeError(e);
       console.error(`[solana-post-reader] fold failed: ${lastError}`);
     }
-    await new Promise((r) => setTimeout(r, REFRESH_MS));
+    await sleep(REFRESH_MS);
   }
 }
 
@@ -123,4 +179,4 @@ console.log(
     `(getProgramAccounts, dataSize ${POST_SIZE}); folding posts every ${REFRESH_MS}ms; ` +
     `health on http://127.0.0.1:${server.port}`,
 );
-void loop();
+loop().catch((e: unknown) => fatal("reader stopped", e));

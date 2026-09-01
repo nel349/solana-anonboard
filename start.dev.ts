@@ -5,8 +5,15 @@ import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/la
 import { MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { midnightPlan } from "./localnet-preflight.ts";
 import { midnightNetwork } from "./packages/contracts-midnight/networks.ts";
+import { POST_PROGRAM_ID } from "@solana-anonboard/contracts-solana";
 
 const root = import.meta.dirname!;
+
+// Pin pg clients to IPv4. @effectstream/db defaults DB_HOST to "localhost", which can
+// resolve to ::1 — but the PGLite server may only manage an IPv4 bind (seen in the wild:
+// its IPv6 listen fails, the port wait passes anyway, and every client then dies on
+// ECONNREFUSED). 127.0.0.1 makes the connection deterministic. Explicit override wins.
+process.env.DB_HOST ??= "127.0.0.1";
 
 // The sync node cannot start until the Midnight contract is deployed:
 // config.dev.ts calls readMidnightContract() at import time.
@@ -43,7 +50,16 @@ const readerProcesses = [
     description: "Solana post reader (folds posts via getProgramAccounts; local + devnet)",
     cwd: root,
     args: ["run", "packages/node/solana-post-reader.ts"],
-    env: { PGLITE: "true" },
+    // The dev wrapper (scripts/dev.ts) exports the SOLANA_READER_* values; raw mode
+    // (`bunx orchestrator start`) has no wrapper, so default to the local validator +
+    // the committed program id here. A devnet raw run still needs the wrapper's
+    // provisioned values (dev:raw assumes a prior `bun run dev` — see package.json).
+    env: {
+      PGLITE: "true",
+      SOLANA_READER_UPSTREAM: process.env.SOLANA_READER_UPSTREAM ?? "http://localhost:8899",
+      SOLANA_READER_PROGRAM_ID: process.env.SOLANA_READER_PROGRAM_ID ?? POST_PROGRAM_ID,
+      SOLANA_READER_PORT: process.env.SOLANA_READER_PORT ?? String(SOLANA_READER_PORT),
+    },
     waitToExit: false,
     type: "system-dependency" as const,
     link: `http://127.0.0.1:${SOLANA_READER_PORT}`,
