@@ -15,7 +15,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
-import { DEV_PORTS, freePorts } from "./dev-ports.ts";
+import { APP_PORTS, DEV_PORTS, freePorts, portSquatters } from "./dev-ports.ts";
 import { shouldTearDownLocalnet, tearDownLocalnet } from "./localnet-teardown.ts";
 import { stripAnsi, deployStep, clampWidth, solanaRowView } from "./dev-render.ts";
 import { getDeployment } from "../packages/contracts-midnight/deployments.ts";
@@ -206,6 +206,32 @@ async function maybePromptSolanaNetwork(): Promise<void> {
   );
 }
 await maybePromptSolanaNetwork();
+
+// Fail fast when a FOREIGN process holds one of anonboard's own ports. A squatter does
+// not fail the boot cleanly, it corrupts it: on 5432 our DB server can "succeed" on the
+// IPv6 wildcard while every client hits the squatter on IPv4 and hangs with no error;
+// on 5173/9999/3334 the service just loses the bind race. Never auto-kill (5173 could
+// be another project's dev server) — name the holder and let the user decide.
+{
+  const squatters = portSquatters(APP_PORTS);
+  if (squatters.length > 0) {
+    const lines = squatters.map(
+      (s) => `    :${s.port}  held by ${s.holder.command} (pid ${s.holder.pid})`,
+    );
+    process.stdout.write(
+      [
+        "",
+        `${c.red}anonboard's ports are not free:${c.reset}`,
+        ...lines,
+        "",
+        "If these are leftovers from a previous run: bun run dev:stop",
+        "If they belong to another app, stop it (or move it off the port) and re-run.",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+}
 
 // Reusing a recorded contract means the deploy step is a no-op, so its checklist row
 // shouldn't wait on the sync node — mark it done immediately.

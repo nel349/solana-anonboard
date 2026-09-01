@@ -40,10 +40,10 @@ export function isProtectedCommand(command: string): boolean {
   return PROTECTED_COMMAND.test(command);
 }
 
-type PortHolder = { pid: number; command: string };
+export type PortHolder = { pid: number; command: string };
 
 // Listening PID(s) + command name for a port, via one lsof -F call (p<pid>, c<command>).
-function holdersOnPort(port: number): PortHolder[] {
+export function holdersOnPort(port: number): PortHolder[] {
   const r = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpc"], {
     encoding: "utf8",
   });
@@ -81,4 +81,19 @@ export function freePorts(ports: number[]): number {
     }
   }
   return killed;
+}
+
+// Boot preflight: anonboard's own app ports must be FREE — a foreign process there
+// doesn't fail the boot, it corrupts it (worst case 5432: our DB server "succeeds" on
+// the IPv6 wildcard while clients hit the squatter on IPv4 and hang with no error).
+// Returns the squatters so the caller can name them and abort fast instead.
+export function portSquatters(ports: number[]): { port: number; holder: PortHolder }[] {
+  const out: { port: number; holder: PortHolder }[] = [];
+  for (const port of ports) {
+    for (const holder of holdersOnPort(port)) {
+      if (holder.pid === process.pid) continue;
+      out.push({ port, holder });
+    }
+  }
+  return out;
 }

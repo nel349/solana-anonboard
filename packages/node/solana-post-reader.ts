@@ -131,10 +131,25 @@ function fatal(context: string, e: unknown): never {
 // logged and surfaced via the health endpoint — bounded, then a loud fatal.
 const DB_RETRY_MS = Number(process.env.SOLANA_READER_DB_RETRY_MS ?? "2000");
 const DB_RETRY_MAX = Number(process.env.SOLANA_READER_DB_RETRY_MAX ?? "60"); // ~2 min
+// A connect can also HANG (a non-Postgres process squatting the port swallows the
+// handshake — the query neither resolves nor rejects), so each attempt gets a deadline.
+const DB_ATTEMPT_TIMEOUT_MS = 10_000;
 async function waitForDatabase(): Promise<void> {
   for (let attempt = 1; attempt <= DB_RETRY_MAX; attempt++) {
     try {
-      await ensureSchema();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `no reply from the database in ${DB_ATTEMPT_TIMEOUT_MS / 1000}s — is a non-Postgres process holding the port?`,
+              ),
+            ),
+          DB_ATTEMPT_TIMEOUT_MS,
+        );
+      });
+      await Promise.race([ensureSchema(), deadline]).finally(() => clearTimeout(timer));
       return;
     } catch (e) {
       lastError = describeError(e);
